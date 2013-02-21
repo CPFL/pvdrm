@@ -1023,6 +1023,9 @@ static int nouveau_remove_conflicting_drivers(struct drm_device *dev)
 	return 0;
 }
 
+extern int nouveau_device_count;
+extern struct drm_device **nouveau_drm;
+
 int nouveau_load(struct drm_device *dev, unsigned long flags)
 {
 	struct drm_nouveau_private *dev_priv;
@@ -1202,6 +1205,17 @@ int nouveau_load(struct drm_device *dev, unsigned long flags)
 	ret = nouveau_card_init(dev);
 	if (ret)
 		goto err_ramin;
+
+	/* Nouveau indexes primaries from 1, but we store them from 0 */
+	if (dev->primary->index < nouveau_device_count) {
+		nouveau_drm[dev->primary->index] = dev;
+		NV_INFO(dev, "DRM registered, index %d, count %d, dev %p\n", 
+				dev->primary->index, nouveau_device_count, dev);
+	}
+	else {
+		NV_INFO(dev, "DRM not registered, index %d, count %d\n", 
+				dev->primary->index, nouveau_device_count);
+	}
 
 	return 0;
 

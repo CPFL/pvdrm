@@ -224,6 +224,18 @@ nouveau_channel_alloc(struct drm_device *dev, struct nouveau_channel **chan_ret,
 		OUT_RING  (chan, NvSw);
 		FIRE_RING (chan);
 	}
+	else { /* patching for Gdev */
+		ret = nouveau_gpuobj_gr_new(chan, 0x9039, 0x9039);
+		if (ret)
+			return ret;
+		
+		ret = RING_SPACE(chan, 2);
+		if (ret)
+			return ret;
+		
+		BEGIN_NVC0(chan, NvSubM2MF, 0x0000, 1);
+		OUT_RING  (chan, 0x00009039);
+	}
 
 	FIRE_RING(chan);
 

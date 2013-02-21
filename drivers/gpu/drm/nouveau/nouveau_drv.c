@@ -476,8 +476,41 @@ static struct pci_driver nouveau_pci_driver = {
 		.resume = nouveau_pci_resume
 };
 
+static int __get_device_count(void)
+{
+	struct pci_dev *pdev = NULL;
+	const struct pci_device_id *pid;
+	int i;
+	int count = 0;
+	int while_loop = 0;
+
+	for (i = 0; pciidlist[i].vendor != 0; i++) {
+		pid = &pciidlist[i];
+		while ((pdev = pci_get_subsys(pid->vendor, pid->device, pid->subvendor, pid->subdevice, pdev)) != NULL) {
+			while_loop++;
+			if ((pdev->class & pid->class_mask) != pid->class) {
+				continue;
+			}
+			count++; /* physical device count */
+		}
+	}
+
+	return count;
+}
+
+int nouveau_device_count = 0;
+struct drm_device **nouveau_drm;
+
 static int __init nouveau_init(void)
 {
+	nouveau_device_count = __get_device_count();
+
+	nouveau_drm = kzalloc(sizeof(*nouveau_drm) * nouveau_device_count, GFP_KERNEL);
+	if (!nouveau_drm) {
+		printk(KERN_INFO "Failed to allocate nouveau drm array\n");
+		return -ENOMEM;
+	}
+
 	driver.num_ioctls = ARRAY_SIZE(nouveau_ioctls);
 
 	if (nouveau_modeset == -1) {

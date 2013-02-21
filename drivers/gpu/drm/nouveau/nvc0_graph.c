@@ -656,6 +656,8 @@ nvc0_graph_ctxctl_isr(struct drm_device *dev)
 	nv_wr32(dev, 0x409c20, ustat);
 }
 
+void (*nouveau_callback_notify)(int subc, uint32_t data) = NULL;
+
 static void
 nvc0_graph_isr(struct drm_device *dev)
 {
@@ -668,6 +670,14 @@ nvc0_graph_isr(struct drm_device *dev)
 	u32 data = nv_rd32(dev, 0x400708);
 	u32 code = nv_rd32(dev, 0x400110);
 	u32 class = nv_rd32(dev, 0x404200 + (subc * 4));
+
+	if (stat & 0x00000001) {
+		if (nouveau_callback_notify) {
+			nouveau_callback_notify(subc, data);
+		}
+		nv_wr32(dev, 0x400100, 0x00000001);
+		stat &= ~0x00000001;
+	}
 
 	if (stat & 0x00000010) {
 		if (nouveau_gpuobj_mthd_call2(dev, chid, class, mthd, data)) {
