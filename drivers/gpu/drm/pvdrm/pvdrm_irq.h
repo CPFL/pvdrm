@@ -21,29 +21,10 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef PVDRM_IRQ_H_
+#define PVDRM_IRQ_H_
 
-#include "drmP.h"
-#include "drm.h"
-#include "drm_crtc_helper.h"
+irqreturn_t pvdrm_irq_handler(int irq, void *arg);
 
-#include "pvdrm_gem.h"
-
-int pvdrm_gem_object_init(struct drm_gem_object *obj)
-{
-	return 0;
-}
-
-void pvdrm_gem_object_free(struct drm_gem_object *gobj)
-{
-}
-
-int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file)
-{
-	return 0;
-}
-
-void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file)
-{
-}
-
+#endif  /* PVDRM_IRQ_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

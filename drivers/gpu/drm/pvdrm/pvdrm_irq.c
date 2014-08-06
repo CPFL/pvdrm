@@ -26,24 +26,11 @@
 #include "drm.h"
 #include "drm_crtc_helper.h"
 
-#include "pvdrm_gem.h"
+#include "pvdrm_irq.h"
 
-int pvdrm_gem_object_init(struct drm_gem_object *obj)
+irqreturn_t pvdrm_irq_handler(int irq, void *arg)
 {
 	return 0;
-}
-
-void pvdrm_gem_object_free(struct drm_gem_object *gobj)
-{
-}
-
-int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file)
-{
-	return 0;
-}
-
-void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file)
-{
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

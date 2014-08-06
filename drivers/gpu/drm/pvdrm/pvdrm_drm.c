@@ -44,6 +44,8 @@
 
 #include "pvdrm_drm.h"
 #include "pvdrm_gem.h"
+#include "pvdrm_irq.h"
+#include "pvdrm_load.h"
 #include "pvdrm_ttm.h"
 
 #if 0
