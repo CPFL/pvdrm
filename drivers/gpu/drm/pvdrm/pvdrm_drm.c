@@ -43,6 +43,7 @@
 #include "drm_crtc_helper.h"
 
 #include "pvdrm_drm.h"
+#include "pvdrm_gem.h"
 #include "pvdrm_ttm.h"
 
 #if 0
@@ -96,29 +97,14 @@ static struct drm_driver driver = {
 	.gem_free_object = nouveau_gem_object_del,
 	.gem_open_object = nouveau_gem_object_open,
 	.gem_close_object = nouveau_gem_object_close,
-
-	.dumb_create = nouveau_display_dumb_create,
-	.dumb_map_offset = nouveau_display_dumb_map_offset,
-	.dumb_destroy = nouveau_display_dumb_destroy,
-
-	.name = DRIVER_NAME,
-	.desc = DRIVER_DESC,
-#ifdef GIT_REVISION
-	.date = GIT_REVISION,
-#else
-	.date = DRIVER_DATE,
-#endif
-	.major = DRIVER_MAJOR,
-	.minor = DRIVER_MINOR,
-	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
 #endif
 
-static struct drm_driver pvdrm_drm_driver = {
+static struct drm_ioctl_desc pvdrm_ioctls[] = {
 };
 
-static const struct file_operations pvdrm_driver_fops = {
+static const struct file_operations pvdrm_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
 	.release = drm_release,
@@ -130,17 +116,41 @@ static const struct file_operations pvdrm_driver_fops = {
 	.llseek = noop_llseek,
 };
 
+static struct drm_driver pvdrm_drm_driver = {
+	.driver_features	= DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM,
+	.load       = pvdrm_load,
+	.unload     = pvdrm_unload,
+
+	.open       = pvdrm_open,
+	.preclose   = pvdrm_preclose,
+	.postclose  = pvdrm_postclose,
+
+	.gem_init_object  = pvdrm_gem_object_init,
+	.gem_free_object  = pvdrm_gem_object_free,
+	.gem_open_object  = pvdrm_gem_object_open,
+	.gem_close_object = pvdrm_gem_object_close,
+	.fops   = &pvdrm_fops,
+	.ioctls = pvdrm_ioctls,
+	.irq_handler = pvdrm_irq_handler,
+
+	.name       = DRIVER_NAME,
+	.desc       = DRIVER_DESC,
+	.date       = DRIVER_DATE,
+	.major      = DRIVER_MAJOR,
+	.minor      = DRIVER_MINOR,
+	.patchlevel = DRIVER_PATCHLEVEL,
+};
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
-        // Probe platform_device and drm_dev
-        struct platform_device* pdev = platform_device_register_simple("pvdrm", -1, NULL, 0);
-        dev_set_drvdata(&xbdev->dev, pdev);
+	// Probe platform_device and drm_dev
+	struct platform_device* pdev = platform_device_register_simple("pvdrm", -1, NULL, 0);
+	dev_set_drvdata(&xbdev->dev, pdev);
 	return drm_platform_init(&pvdrm_drm_driver, pdev);
 }
 
 static void pvdrm_remove(struct xenbus_device *xbdev)
 {
-        // Remove platform_device and drm_dev
+	// Remove platform_device and drm_dev
 	struct platform_device *pdev = dev_get_drvdata(&xbdev->dev);
 	drm_platform_exit(&pvdrm_drm_driver, pdev);
 }
@@ -164,7 +174,7 @@ static DEFINE_XENBUS_DRIVER(pvdrm, ,
 
 static int __init pvdrm_init(void)
 {
-        int ret = 0;
+	int ret = 0;
 
 	if (!xen_domain())
 		return -ENODEV;
@@ -186,6 +196,6 @@ static void __exit pvdrm_exit(void)
 module_exit(pvdrm_exit);
 
 MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION("PV DRM frontend driver");
+MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 /* vim: set sw=8 ts=8 et tw=80 : */
