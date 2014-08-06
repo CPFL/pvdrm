@@ -25,12 +25,27 @@
 #include <linux/console.h>
 #include <linux/module.h>
 
+#include <xen/xen.h>
+#include <xen/xenbus.h>
+#include <xen/events.h>
+#include <xen/page.h>
+#include <xen/platform_pci.h>
+#include <xen/grant_table.h>
+
+#include <xen/interface/memory.h>
+#include <xen/interface/grant_table.h>
+#include <xen/interface/io/protocols.h>
+
+#include <asm/xen/hypervisor.h>
+
 #include "drmP.h"
 #include "drm.h"
 #include "drm_crtc_helper.h"
 
 #include "pvdrm_drm.h"
+#include "pvdrm_ttm.h"
 
+#if 0
 static struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GETPARAM, nouveau_abi16_ioctl_getparam, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(NOUVEAU_SETPARAM, nouveau_abi16_ioctl_setparam, DRM_UNLOCKED|DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
@@ -44,18 +59,6 @@ static struct drm_ioctl_desc nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_PREP, nouveau_gem_ioctl_cpu_prep, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_FINI, nouveau_gem_ioctl_cpu_fini, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_INFO, nouveau_gem_ioctl_info, DRM_UNLOCKED|DRM_AUTH),
-};
-
-static const struct file_operations pvdrm_driver_fops = {
-	.owner = THIS_MODULE,
-	.open = drm_open,
-	.release = drm_release,
-	.unlocked_ioctl = drm_ioctl,
-	.mmap = pvdrm_ttm_mmap,
-	.poll = drm_poll,
-	.fasync = drm_fasync,
-	.read = drm_read,
-	.llseek = noop_llseek,
 };
 
 static struct drm_driver driver = {
@@ -110,50 +113,79 @@ static struct drm_driver driver = {
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
-static int __devinit pvdrm_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
-{
-	return drm_get_pci_dev(pdev, ent, &driver);
-}
+#endif
 
-static void pvdrm_pci_remove(struct pci_dev *pdev)
-{
-	struct drm_device *dev = pci_get_drvdata(pdev);
-
-	drm_put_dev(dev);
-}
-
-static struct pci_device_id pciidlist[] = {
-	{
-		PCI_DEVICE(PCI_VENDOR_ID_PVDRM, PCI_ANY_ID),
-		.class = PCI_BASE_CLASS_DISPLAY << 16,
-		.class_mask  = 0xff << 16,
-	},
-	{}
+static struct drm_driver pvdrm_drm_driver = {
 };
 
-MODULE_DEVICE_TABLE(pci, pciidlist);
-
-static struct pci_driver pvdrm_pci_driver = {
-	.name = DRIVER_NAME,
-	.id_table = pciidlist,
-	.probe = pvdrm_pci_probe,
-	.remove = pvdrm_pci_remove,
+static const struct file_operations pvdrm_driver_fops = {
+	.owner = THIS_MODULE,
+	.open = drm_open,
+	.release = drm_release,
+	.unlocked_ioctl = drm_ioctl,
+	.mmap = pvdrm_ttm_mmap,
+	.poll = drm_poll,
+	.fasync = drm_fasync,
+	.read = drm_read,
+	.llseek = noop_llseek,
 };
+
+static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
+{
+        // Probe platform_device and drm_dev
+        struct platform_device* pdev = platform_device_register_simple("pvdrm", -1, NULL, 0);
+        dev_set_drvdata(&xbdev->dev, pdev);
+	return drm_platform_init(&pvdrm_drm_driver, pdev);
+}
+
+static void pvdrm_remove(struct xenbus_device *xbdev)
+{
+        // Remove platform_device and drm_dev
+	struct platform_device *pdev = dev_get_drvdata(&xbdev->dev);
+	drm_platform_exit(&pvdrm_drm_driver, pdev);
+}
+
+static void pvdrm_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
+{
+}
+
+static const struct xenbus_device_id pvdrm_ids[] = {
+	{ "vdrm" },
+	{ "" }
+};
+
+static DEFINE_XENBUS_DRIVER(pvdrm, ,
+	.probe = pvdrm_probe,
+	.remove = pvdrm_remove,
+	/* .resume = pvdrm_resume, */
+	.otherend_changed = pvdrm_changed,
+	/* .is_ready = pvdrm_is_ready, */
+);
 
 static int __init pvdrm_init(void)
 {
+        int ret = 0;
+
+	if (!xen_domain())
+		return -ENODEV;
+
+	if (xen_hvm_domain() && !xen_platform_pci_unplug)
+		return -ENODEV;
+
+	ret = xenbus_register_frontend(&pvdrm_driver);
+	if (ret)
+                return -ENODEV;
 	return 0;
 }
+module_init(pvdrm_init);
 
 static void __exit pvdrm_exit(void)
 {
+	xenbus_unregister_driver(&pvdrm_driver);
 }
-
-module_init(pvdrm_init);
 module_exit(pvdrm_exit);
 
-MODULE_DEVICE_TABLE(pci, pciidlist);
 MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("BSD");
+MODULE_DESCRIPTION("PV DRM frontend driver");
+MODULE_LICENSE("GPL");
 /* vim: set sw=8 ts=8 et tw=80 : */

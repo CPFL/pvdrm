@@ -21,13 +21,12 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef PVDRM_TTM_H_
+#define PVDRM_TTM_H_
 
-#include "pvdrm_ttm.h"
+#include <linux/module.h>
 
-int
-pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	return 0;
-}
+int pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma);
 
+#endif  /* PVDRM_TTM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
