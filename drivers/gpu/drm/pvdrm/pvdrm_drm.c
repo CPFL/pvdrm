@@ -47,6 +47,7 @@
 #include "pvdrm_irq.h"
 #include "pvdrm_load.h"
 #include "pvdrm_ttm.h"
+#include "pvdrm_vblank.h"
 
 #if 0
 static struct drm_ioctl_desc nouveau_ioctls[] = {
@@ -135,6 +136,10 @@ static struct drm_driver pvdrm_drm_driver = {
 	.ioctls = pvdrm_ioctls,
 	.irq_handler = pvdrm_irq_handler,
 
+	.get_vblank_counter = pvdrm_vblank_get_counter,
+	.enable_vblank = pvdrm_vblank_enable,
+	.disable_vblank = pvdrm_vblank_disable,
+
 	.name       = DRIVER_NAME,
 	.desc       = DRIVER_DESC,
 	.date       = DRIVER_DATE,
@@ -142,6 +147,7 @@ static struct drm_driver pvdrm_drm_driver = {
 	.minor      = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
+
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
 	return drm_xenbus_init(&pvdrm_drm_driver, xbdev);
@@ -161,7 +167,7 @@ static const struct xenbus_device_id pvdrm_ids[] = {
 	{ "" }
 };
 
-static DEFINE_XENBUS_DRIVER(pvdrm, ,
+static DEFINE_XENBUS_DRIVER(pvdrm, "pvdrm",
 	.probe = pvdrm_probe,
 	.remove = pvdrm_remove,
 	/* .resume = pvdrm_resume, */

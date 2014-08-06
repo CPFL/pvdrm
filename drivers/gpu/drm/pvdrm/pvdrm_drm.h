@@ -24,6 +24,8 @@
 #ifndef PVDRM_DRM_H_
 #define PVDRM_DRM_H_
 
+#include "drmP.h"
+
 #define DRIVER_AUTHOR		"Yusuke Suzuki"
 
 #define DRIVER_NAME		"pvdrm"
@@ -33,6 +35,10 @@
 #define DRIVER_MAJOR		1
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
+
+struct pvdrm_device {
+	struct drm_device* dev;
+};
 
 #endif  /* PVDRM_DRM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

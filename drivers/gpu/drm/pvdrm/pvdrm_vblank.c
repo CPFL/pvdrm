@@ -23,52 +23,19 @@
 */
 
 #include "pvdrm_drm.h"
-#include "pvdrm_load.h"
+#include "pvdrm_vblank.h"
 
-static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
+u32 pvdrm_vblank_get_counter(struct drm_device *dev, int crtc)
 {
-	return 0;
+        return 0;
 }
 
-int pvdrm_load(struct drm_device *dev, unsigned long flags)
+int pvdrm_vblank_enable(struct drm_device *dev, int crtc)
 {
-	struct pvdrm_device *pvdrm = NULL;
-	int ret = 0;
-
-	if (!(pvdrm = kzalloc(sizeof(pvdrm), GFP_KERNEL)))
-		return -ENOMEM;
-	dev->dev_private = (void *)pvdrm;
-	pvdrm->dev = dev;
-
-	ret = pvdrm_init(pvdrm, dev, flags);
-	if (ret)
-		goto out;
-
-out:
-	if (ret)
-		pvdrm_unload(dev);
-
-	return ret;
+        return -ENOSYS;
 }
 
-int pvdrm_unload(struct drm_device *dev)
-{
-	int ret = 0;
-	if (dev->dev_private)
-		kfree(dev->dev_private);
-	return ret;
-}
-
-int pvdrm_open(struct drm_device *dev, struct drm_file *file)
-{
-	return 0;
-}
-
-void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
-{
-}
-
-void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
+void pvdrm_vblank_disable(struct drm_device *dev, int crtc)
 {
 }
 

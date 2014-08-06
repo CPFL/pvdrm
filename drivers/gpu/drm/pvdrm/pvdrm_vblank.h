@@ -21,55 +21,16 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef PVDRM_VBLANK_H_
+#define PVDRM_VBLANK_H_
 
-#include "pvdrm_drm.h"
-#include "pvdrm_load.h"
+#include <linux/module.h>
 
-static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
-{
-	return 0;
-}
+#include "drmP.h"
 
-int pvdrm_load(struct drm_device *dev, unsigned long flags)
-{
-	struct pvdrm_device *pvdrm = NULL;
-	int ret = 0;
+u32 pvdrm_vblank_get_counter(struct drm_device *dev, int crtc);
+int pvdrm_vblank_enable(struct drm_device *dev, int crtc);
+void pvdrm_vblank_disable(struct drm_device *dev, int crtc);
 
-	if (!(pvdrm = kzalloc(sizeof(pvdrm), GFP_KERNEL)))
-		return -ENOMEM;
-	dev->dev_private = (void *)pvdrm;
-	pvdrm->dev = dev;
-
-	ret = pvdrm_init(pvdrm, dev, flags);
-	if (ret)
-		goto out;
-
-out:
-	if (ret)
-		pvdrm_unload(dev);
-
-	return ret;
-}
-
-int pvdrm_unload(struct drm_device *dev)
-{
-	int ret = 0;
-	if (dev->dev_private)
-		kfree(dev->dev_private);
-	return ret;
-}
-
-int pvdrm_open(struct drm_device *dev, struct drm_file *file)
-{
-	return 0;
-}
-
-void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
-{
-}
-
-void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
-{
-}
-
+#endif  /* PVDRM_VBLANK_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
