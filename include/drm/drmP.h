@@ -156,6 +156,7 @@ int drm_err(const char *func, const char *format, ...);
 #define DRIVER_BUS_PCI 0x1
 #define DRIVER_BUS_PLATFORM 0x2
 #define DRIVER_BUS_USB 0x3
+#define DRIVER_BUS_XENBUS 0x4
 
 /***********************************************************************/
 /** \name Begin the DRM... */
@@ -730,6 +731,8 @@ struct drm_bus {
 
 };
 
+struct xenbus_device;
+
 /**
  * DRM driver structure. This structure represent the common code for
  * a family of cards. There will one drm_device for each card present
@@ -952,6 +955,7 @@ struct drm_driver {
 		struct pci_driver *pci;
 		struct platform_device *platform_device;
 		struct usb_driver *usb;
+		struct xenbus_device *xbdev;
 	} kdriver;
 	struct drm_bus *bus;
 
@@ -1172,6 +1176,7 @@ struct drm_device {
 
 	struct platform_device *platformdev; /**< Platform device struture */
 	struct usb_device *usbdev;
+	struct xenbus_device *xbdev;
 
 	struct drm_sg_mem *sg;	/**< Scatter gather memory */
 	unsigned int num_crtcs;                  /**< Number of CRTCs on this device */
@@ -1761,6 +1766,11 @@ extern void drm_platform_exit(struct drm_driver *driver, struct platform_device 
 
 extern int drm_get_platform_dev(struct platform_device *pdev,
 				struct drm_driver *driver);
+
+/* xenbus section */
+extern int drm_xenbus_init(struct drm_driver *driver, struct xenbus_device *xbdev);
+extern void drm_xenbus_exit(struct drm_driver *driver, struct xenbus_device *xbdev);
+extern int drm_get_xenbus_dev(struct xenbus_device *xbdev, struct drm_driver *driver);
 
 /* returns true if currently okay to sleep */
 static __inline__ bool drm_can_sleep(void)

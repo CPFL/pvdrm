@@ -144,17 +144,12 @@ static struct drm_driver pvdrm_drm_driver = {
 };
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
-	// Probe platform_device and drm_dev
-	struct platform_device* pdev = platform_device_register_simple("pvdrm", -1, NULL, 0);
-	dev_set_drvdata(&xbdev->dev, pdev);
-	return drm_platform_init(&pvdrm_drm_driver, pdev);
+	return drm_xenbus_init(&pvdrm_drm_driver, xbdev);
 }
 
 static void pvdrm_remove(struct xenbus_device *xbdev)
 {
-	// Remove platform_device and drm_dev
-	struct platform_device *pdev = dev_get_drvdata(&xbdev->dev);
-	drm_platform_exit(&pvdrm_drm_driver, pdev);
+	drm_xenbus_exit(&pvdrm_drm_driver, xbdev);
 }
 
 static void pvdrm_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
