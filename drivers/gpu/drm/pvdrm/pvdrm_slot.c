@@ -24,6 +24,7 @@
 
 #include <linux/types.h>
 #include <linux/semaphore.h>
+#include <linux/string.h>
 
 #include <xen/xen.h>
 #include <xen/xenbus.h>
@@ -121,6 +122,12 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 
 	spin_unlock_irqrestore(&slots->lock, flags);
 	up(&slots->sema);
+}
+
+int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
+{
+	/* TODO: Implement it. */
+	return 0;
 }
 
 
