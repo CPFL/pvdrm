@@ -52,46 +52,6 @@
 
 #include "pvdrm_nouveau_abi16.h"
 
-#if 0
-static struct drm_driver driver = {
-	.driver_features =
-		DRIVER_USE_AGP | DRIVER_PCI_DMA | DRIVER_SG |
-		DRIVER_HAVE_IRQ | DRIVER_IRQ_SHARED | DRIVER_GEM |
-		DRIVER_MODESET | DRIVER_PRIME,
-	.load = nouveau_load,
-	.firstopen = nouveau_firstopen,
-	.lastclose = nouveau_lastclose,
-	.unload = nouveau_unload,
-	.open = nouveau_open,
-	.preclose = nouveau_preclose,
-	.postclose = nouveau_postclose,
-#if defined(CONFIG_DRM_NOUVEAU_DEBUG)
-	.debugfs_init = nouveau_debugfs_init,
-	.debugfs_cleanup = nouveau_debugfs_takedown,
-#endif
-	.irq_preinstall = nouveau_irq_preinstall,
-	.irq_postinstall = nouveau_irq_postinstall,
-	.irq_uninstall = nouveau_irq_uninstall,
-	.irq_handler = nouveau_irq_handler,
-	.get_vblank_counter = drm_vblank_count,
-	.enable_vblank = nouveau_vblank_enable,
-	.disable_vblank = nouveau_vblank_disable,
-	.ioctls = nouveau_ioctls,
-	.fops = &pvdrm_driver_fops,
-
-	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
-	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
-	.gem_prime_export = nouveau_gem_prime_export,
-	.gem_prime_import = nouveau_gem_prime_import,
-
-	.gem_init_object = nouveau_gem_object_new,
-	.gem_free_object = nouveau_gem_object_del,
-	.gem_open_object = nouveau_gem_object_open,
-	.gem_close_object = nouveau_gem_object_close,
-};
-
-#endif
-
 static const struct file_operations pvdrm_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
