@@ -21,28 +21,35 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_DRM_H_
-#define PVDRM_DRM_H_
+#ifndef PVDRM_SLOT_H_
+#define PVDRM_SLOT_H_
 
-#include "drmP.h"
+#include <linux/types.h>
+#include <linux/semaphore.h>
+#include <linux/spinlock.h>
 
-#include "pvdrm_slot.h"
+#include <xen/grant_table.h>
+#define PVDRM_SLOT_NR 64
 
-#define DRIVER_AUTHOR		"Yusuke Suzuki"
-
-#define DRIVER_NAME		"pvdrm"
-#define DRIVER_DESC		"PVDRM driver"
-#define DRIVER_DATE		"20140731"
-
-#define DRIVER_MAJOR		1
-#define DRIVER_MINOR		0
-#define DRIVER_PATCHLEVEL	0
-
-struct pvdrm_device {
-	struct drm_device* dev;
-	int dom0;
-	struct pvdrm_slots slots;
+struct pvdrm_slot {
+	int __id;
+	uint32_t code;
 };
 
-#endif  /* PVDRM_DRM_H_ */
+struct pvdrm_slots {
+	struct semaphore sema;
+	spinlock_t lock;
+	struct pvdrm_slot* entries[PVDRM_SLOT_NR];
+	struct page* pages[PVDRM_SLOT_NR];
+	grant_ref_t handles[PVDRM_SLOT_NR];
+	uint8_t used[PVDRM_SLOT_NR];
+};
+
+struct pvdrm_device;
+
+int pvdrm_slot_init(struct pvdrm_device* pvdrm);
+struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
+void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
+
+#endif  /* PVDRM_SLOT_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

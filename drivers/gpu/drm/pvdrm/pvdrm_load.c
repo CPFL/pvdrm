@@ -24,9 +24,11 @@
 
 #include "pvdrm_drm.h"
 #include "pvdrm_load.h"
+#include "pvdrm_slot.h"
 
 static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
 {
+	// pvdrm_slot_init(pvdrm);
 	return 0;
 }
 
