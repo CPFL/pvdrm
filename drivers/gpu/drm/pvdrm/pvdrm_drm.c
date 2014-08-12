@@ -23,6 +23,7 @@
 */
 
 #include <linux/console.h>
+#include <linux/device.h>
 #include <linux/module.h>
 
 #include <xen/xen.h>
@@ -158,8 +159,31 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 	drm_xenbus_exit(&pvdrm_drm_driver, xbdev);
 }
 
-static void pvdrm_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
+static void pvdrm_connect(struct xenbus_device *xbdev)
 {
+	// int err = xenbus_alloc_evtchn(xbdev, &info->evtchn);
+}
+
+static void pvdrmback_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
+{
+	switch (backend_state) {
+	case XenbusStateInitialising:
+	case XenbusStateInitialised:
+	case XenbusStateReconfiguring:
+	case XenbusStateReconfigured:
+	case XenbusStateUnknown:
+	case XenbusStateClosed:
+	case XenbusStateInitWait:
+		break;
+
+	case XenbusStateConnected:
+		pvdrm_connect(xbdev);
+		break;
+
+	case XenbusStateClosing:
+		xenbus_frontend_closed(xbdev);
+		break;
+	}
 }
 
 static const struct xenbus_device_id pvdrm_ids[] = {
@@ -171,24 +195,21 @@ static DEFINE_XENBUS_DRIVER(pvdrm, "pvdrm",
 	.probe = pvdrm_probe,
 	.remove = pvdrm_remove,
 	/* .resume = pvdrm_resume, */
-	.otherend_changed = pvdrm_changed,
+	.otherend_changed = pvdrmback_changed,
 	/* .is_ready = pvdrm_is_ready, */
 );
 
 static int __init pvdrm_init(void)
 {
-	int ret = 0;
-
 	if (!xen_domain())
 		return -ENODEV;
 
 	if (xen_hvm_domain() && !xen_platform_pci_unplug)
 		return -ENODEV;
 
-	ret = xenbus_register_frontend(&pvdrm_driver);
-	if (ret)
-                return -ENODEV;
-	return 0;
+	printk(KERN_INFO "Initialising PVDRM driver.\n");
+
+	return xenbus_register_frontend(&pvdrm_driver);
 }
 module_init(pvdrm_init);
 
