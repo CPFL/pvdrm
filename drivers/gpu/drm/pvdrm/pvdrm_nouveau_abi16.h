@@ -21,15 +21,12 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_GEM_H_
-#define PVDRM_GEM_H_
+#ifndef PVDRM_NOUVEAU_ABI16_H_
+#define PVDRM_NOUVEAU_ABI16_H_
 
 #include "drmP.h"
 
-int pvdrm_gem_object_init(struct drm_gem_object *obj);
-void pvdrm_gem_object_free(struct drm_gem_object *gobj);
-int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file);
-void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file);
+extern struct drm_ioctl_desc pvdrm_nouveau_ioctls[];
 
-#endif  /* PVDRM_GEM_H_ */
+#endif  /* PVDRM_NOUVEAU_ABI16_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

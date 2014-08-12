@@ -50,22 +50,9 @@
 #include "pvdrm_ttm.h"
 #include "pvdrm_vblank.h"
 
-#if 0
-static struct drm_ioctl_desc nouveau_ioctls[] = {
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GETPARAM, nouveau_abi16_ioctl_getparam, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_SETPARAM, nouveau_abi16_ioctl_setparam, DRM_UNLOCKED|DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_CHANNEL_ALLOC, nouveau_abi16_ioctl_channel_alloc, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_CHANNEL_FREE, nouveau_abi16_ioctl_channel_free, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GROBJ_ALLOC, nouveau_abi16_ioctl_grobj_alloc, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_NOTIFIEROBJ_ALLOC, nouveau_abi16_ioctl_notifierobj_alloc, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GPUOBJ_FREE, nouveau_abi16_ioctl_gpuobj_free, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_NEW, nouveau_gem_ioctl_new, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_PUSHBUF, nouveau_gem_ioctl_pushbuf, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_PREP, nouveau_gem_ioctl_cpu_prep, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_FINI, nouveau_gem_ioctl_cpu_fini, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_INFO, nouveau_gem_ioctl_info, DRM_UNLOCKED|DRM_AUTH),
-};
+#include "pvdrm_nouveau_abi16.h"
 
+#if 0
 static struct drm_driver driver = {
 	.driver_features =
 		DRIVER_USE_AGP | DRIVER_PCI_DMA | DRIVER_SG |
@@ -105,9 +92,6 @@ static struct drm_driver driver = {
 
 #endif
 
-static struct drm_ioctl_desc pvdrm_ioctls[] = {
-};
-
 static const struct file_operations pvdrm_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
@@ -134,7 +118,6 @@ static struct drm_driver pvdrm_drm_driver = {
 	.gem_open_object  = pvdrm_gem_object_open,
 	.gem_close_object = pvdrm_gem_object_close,
 	.fops   = &pvdrm_fops,
-	.ioctls = pvdrm_ioctls,
 	.irq_handler = pvdrm_irq_handler,
 
 	.get_vblank_counter = pvdrm_vblank_get_counter,
@@ -151,6 +134,10 @@ static struct drm_driver pvdrm_drm_driver = {
 
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
+	/* In this phase, we can swich ioctl implementation to nouveau or
+	 * other drivers.
+	 */
+	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
 	return drm_xenbus_init(&pvdrm_drm_driver, xbdev);
 }
 
