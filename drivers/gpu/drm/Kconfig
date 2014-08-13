@@ -94,6 +94,8 @@ source "drivers/gpu/drm/nouveau/Kconfig"
 
 source "drivers/gpu/drm/pvdrm/Kconfig"
 
+source "drivers/gpu/drm/pvdrm-back/Kconfig"
+
 config DRM_I810
 	tristate "Intel I810"
 	# !PREEMPT because of missing ioctl locking
