@@ -32,6 +32,7 @@
 #include <xen/grant_table.h>
 #define PVDRM_SLOT_NR 64
 
+#include "drmP.h"
 #include "../nouveau/nouveau_abi16.h"
 
 #include "pvdrm_fence.h"
@@ -51,12 +52,20 @@ enum {
 	PVDRM_IOCTL_NOUVEAU_GEM_INFO,
 };
 
+struct pvdrm_mapped_counter {
+	atomic_t count;
+	uint32_t ring[PVDRM_SLOT_NR];
+};
+
 struct pvdrm_slot {
-	int __id;
+	/* Headers */
+	uint32_t __id;
 	struct pvdrm_fence __fence;
+
 	uint32_t code;
+	int ret;
 	union {
-		uint64_t __payload;  /* To calculate palyload address */
+		uint64_t __payload;  /* To calculate palyload address. */
 
 		/* ioctl */
 		struct drm_nouveau_getparam getparam;
@@ -88,7 +97,9 @@ struct pvdrm_slot_internal {
 struct pvdrm_slots {
 	struct semaphore sema;
 	spinlock_t lock;
-	struct pvdrm_slot_internal counter;
+
+	struct pvdrm_mapped_counter* counter;
+	struct pvdrm_slot_internal counter_internal;
 	struct pvdrm_slot_internal internals[PVDRM_SLOT_NR];
 };
 

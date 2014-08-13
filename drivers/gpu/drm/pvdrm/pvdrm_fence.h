@@ -30,11 +30,18 @@
 struct pvdrm_device;
 
 struct pvdrm_fence {
-	struct pvdrm_device* pvdrm;
-	atomic64_t seq;
+	atomic_t seq;
 };
 
+
+static inline void pvdrm_fence_emit(struct pvdrm_fence* fence, uint32_t seq)
+{
+	atomic_set(&fence->seq, seq);
+}
+
+void pvdrm_fence_init(struct pvdrm_fence* fence);
 bool pvdrm_fence_done(struct pvdrm_fence* fence);
+uint32_t pvdrm_fence_read(struct pvdrm_fence* fence);
 int pvdrm_fence_wait(struct pvdrm_fence* fence, bool interruptible);
 
 #endif  /* PVDRM_FENCE_H_ */

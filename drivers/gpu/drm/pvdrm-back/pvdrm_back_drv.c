@@ -41,6 +41,8 @@
 
 #include <asm/xen/hypervisor.h>
 
+#include "../pvdrm/pvdrm_slot.h"
+
 typedef struct {
 	spinlock_t req_lock;
 	wait_queue_head_t req;
@@ -50,7 +52,70 @@ static pvdrm_back_core_t* pvdrm_back_core;
 
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
+	wait_queue_head_t cond;
+
+	/* counter */
+	grant_ref_t counter_ref;
+	struct pvdrm_mapped_counter* counter;
+	uint32_t cursor;
+
+	/* slots */
+	grant_ref_t slots_ref[PVDRM_SLOT_NR];
+	struct pvdrm_slot* slots[PVDRM_SLOT_NR];
 };
+
+static uint64_t pvdrm_back_device_count(struct pvdrm_back_device* info)
+{
+	return atomic_read(&info->counter->count);
+}
+
+static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
+{
+	uint32_t id;
+	atomic_dec(&info->counter->count);
+	id = info->counter->ring[info->cursor++ % PVDRM_SLOT_NR];
+	return info->slots[id];
+}
+
+static int process_slot(struct pvdrm_slot* slot)
+{
+	int ret;
+	ret = 0;
+	/* Processing slot. */
+
+	/* Emit fence. */
+	pvdrm_fence_emit(&slot->__fence, 42);
+	return ret;
+}
+
+static int thread_main(void *arg)
+{
+
+	int ret;
+	struct pvdrm_back_device* info;
+
+	ret = 0;
+	info = arg;
+
+	/* Kick state. */
+	ret = xenbus_switch_state(info->xbdev, XenbusStateConnected);
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(info->cond, pvdrm_back_device_count(info) || kthread_should_stop());
+		if (kthread_should_stop()) {
+			break;
+		}
+
+		if (pvdrm_back_device_count(info)) {
+			struct pvdrm_slot* slot = claim_slot(info);
+			ret = process_slot(slot);
+			if (ret) {
+				return ret;
+			}
+		}
+	}
+	return 0;
+}
 
 static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
@@ -62,6 +127,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 		return -ENOMEM;
 	}
 	info->xbdev = xbdev;
+	init_waitqueue_head(&info->cond);
 	dev_set_drvdata(&xbdev->dev, info);
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
@@ -98,7 +164,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 
 		/* OK, connect it. */
 		/* TODO: Implement it */
-		ret = xenbus_switch_state(xbdev, XenbusStateConnected);
+		kthread_run(thread_main, (void*)info, "pvdrm-back");
 		break;
 
 	case XenbusStateClosing:
@@ -139,22 +205,9 @@ static DEFINE_XENBUS_DRIVER(pvdrm_back, ,
 	.otherend_changed = frontend_changed
 );
 
-int pvdrm_thread_main(void *arg)
-{
-	pvdrm_back_core_t* core = arg;
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(core->req, kthread_should_stop());
-		if (kthread_should_stop()) {
-			break;
-		}
-	}
-	return 0;
-}
-
 static int __init pvdrm_back_init(void)
 {
-	int i;
-	int threads;
+	/* int i, threads; */
 
 	if (!xen_domain())
 		return -ENODEV;
@@ -165,13 +218,15 @@ static int __init pvdrm_back_init(void)
 		return -ENOMEM;
 	}
 
-	// threads = num_online_cpus();
-	// for (i = 0; i < threads; ++i) {
-	// }
+#if 0
+	threads = num_online_cpus();
+	for (i = 0; i < threads; ++i) {
+	}
+#endif
+
 	spin_lock_init(&pvdrm_back_core->req_lock);
 	init_waitqueue_head(&pvdrm_back_core->req);
 
-	kthread_run(pvdrm_thread_main, (void*)pvdrm_back_core, "pvdrm-back");
 	printk(KERN_INFO "Initialising PVDRM backend driver.\n");
 
 	return xenbus_register_backend(&pvdrm_back_driver);

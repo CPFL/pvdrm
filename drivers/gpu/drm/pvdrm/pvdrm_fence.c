@@ -32,6 +32,12 @@
 
 #include "pvdrm_fence.h"
 
+
+void pvdrm_fence_init(struct pvdrm_fence* fence)
+{
+	pvdrm_fence_emit(fence, 0);
+}
+
 int pvdrm_fence_wait(struct pvdrm_fence* fence, bool interruptible)
 {
 	unsigned long sleep_time = NSEC_PER_MSEC / 1000;
@@ -58,8 +64,14 @@ int pvdrm_fence_wait(struct pvdrm_fence* fence, bool interruptible)
 	return ret;
 }
 
+uint32_t pvdrm_fence_read(struct pvdrm_fence* fence)
+{
+	return atomic_read(&fence->seq);
+}
+
 bool pvdrm_fence_done(struct pvdrm_fence* fence)
 {
-	return atomic64_read(&fence->seq) != 0;
+	return pvdrm_fence_read(fence) != 0;
 }
+
 /* vim: set sw=8 ts=8 et tw=80 : */

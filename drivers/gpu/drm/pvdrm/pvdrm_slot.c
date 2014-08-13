@@ -73,11 +73,13 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	sema_init(&slots->sema, PVDRM_SLOT_NR);
 	spin_lock_init(&slots->lock);
 
+	/* Allocate slot and counter ref. */
 	if (gnttab_alloc_grant_references(PVDRM_SLOT_NR + 1, &gref_head)) {
 		BUG();
 		return -ENOSYS;
 	}
 
+	/* Init slots. */
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
 		ret = init_slot_internal(&gref_head, &slots->internals[i]);
 		if (ret) {
@@ -85,15 +87,16 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 		}
 	}
 
-	// Allocate counter.
-	init_slot_internal(&gref_head, &slots->counter);
+	/* Init counter. */
+	init_slot_internal(&gref_head, &slots->counter_internal);
 	if (ret) {
 		return ret;
 	}
+	slots->counter_internal.addr = slots->counter = kmap(slots->counter_internal.page);
 
 	gnttab_free_grant_references(gref_head);
 
-	/* Then transfer this slots to host via xenbus */
+	/* Then transfer this slots to host via xenbus. */
 	return 0;
 }
 
@@ -124,10 +127,11 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 		slot->__id = i;
 		slots->internals[i].addr = slot;
 	}
-
 	spin_unlock_irqrestore(&slots->lock, flags);
 
-	atomic64_set(&slot->__fence.seq, 0);
+	/* Init slot. */
+	pvdrm_fence_init(&slot->__fence);
+	slot->ret = 0;
 	return slot;
 }
 
@@ -149,12 +153,23 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 {
-	/* TODO: Implement it, emitting fence here */
+	/* TODO: Implement it, emitting fence here. */
 	struct pvdrm_slots* slots;
+	int ret;
+
 	slots = &pvdrm->slots;
+
 	BUG_ON(!slots->internals[slot->__id].used);
-	mb();
-	return pvdrm_fence_wait(&slot->__fence, false);
+
+	/* Request slot, increment counter. */
+	atomic_inc(&slots->counter->count);
+
+	/* Wait. */
+	ret = pvdrm_fence_wait(&slot->__fence, false);
+	if (ret) {
+		return ret;
+	}
+	return slot->ret;
 }
 
 
