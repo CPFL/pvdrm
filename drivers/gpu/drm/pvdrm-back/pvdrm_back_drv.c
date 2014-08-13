@@ -98,6 +98,10 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 
 	case XenbusStateClosed:
 		/* TODO: Implement it */
+		ret = xenbus_switch_state(xbdev, XenbusStateClosed);
+		if (xenbus_dev_is_online(xbdev)) {
+			break;
+		}
 
 		/* fall through if not online */
 	case XenbusStateUnknown:

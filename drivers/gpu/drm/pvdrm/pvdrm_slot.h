@@ -34,6 +34,8 @@
 
 #include "../nouveau/nouveau_abi16.h"
 
+#include "pvdrm_fence.h"
+
 enum {
 	PVDRM_IOCTL_NOUVEAU_GETPARAM,
 	/* PVDRM_IOCTL_NOUVEAU_SETPARAM, */
@@ -51,6 +53,7 @@ enum {
 
 struct pvdrm_slot {
 	int __id;
+	struct pvdrm_fence __fence;
 	uint32_t code;
 	union {
 		uint64_t __payload;  /* To calculate palyload address */
