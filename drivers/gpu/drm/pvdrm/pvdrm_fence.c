@@ -25,6 +25,7 @@
  *
  */
 
+#include <linux/atomic.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
 #include <linux/time.h>
@@ -59,6 +60,6 @@ int pvdrm_fence_wait(struct pvdrm_fence* fence, bool interruptible)
 
 bool pvdrm_fence_done(struct pvdrm_fence* fence)
 {
-	return fence->seq != 0;
+	return atomic64_read(&fence->seq) != 0;
 }
 /* vim: set sw=8 ts=8 et tw=80 : */

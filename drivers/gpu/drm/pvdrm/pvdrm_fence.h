@@ -24,13 +24,14 @@
 #ifndef PVDRM_FENCE_H_
 #define PVDRM_FENCE_H_
 
+#include <linux/atomic.h>
 #include <linux/types.h>
 
 struct pvdrm_device;
 
 struct pvdrm_fence {
 	struct pvdrm_device* pvdrm;
-	uint64_t seq;
+	atomic64_t seq;
 };
 
 bool pvdrm_fence_done(struct pvdrm_fence* fence);
