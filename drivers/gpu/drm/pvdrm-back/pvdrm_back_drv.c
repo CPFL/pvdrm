@@ -25,6 +25,8 @@
 #include <linux/console.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
+#include <linux/wait.h>
 
 #include <xen/xen.h>
 #include <xen/xenbus.h>
@@ -38,6 +40,13 @@
 #include <xen/interface/io/protocols.h>
 
 #include <asm/xen/hypervisor.h>
+
+typedef struct {
+	spinlock_t req_lock;
+	wait_queue_head_t req;
+} pvdrm_back_core_t;
+
+static pvdrm_back_core_t* pvdrm_back_core;
 
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
@@ -130,6 +139,18 @@ static DEFINE_XENBUS_DRIVER(pvdrm_back, ,
 	.otherend_changed = frontend_changed
 );
 
+int pvdrm_thread_main(void *arg)
+{
+	pvdrm_back_core_t* core = arg;
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(core->req, kthread_should_stop());
+		if (kthread_should_stop()) {
+			break;
+		}
+	}
+	return 0;
+}
+
 static int __init pvdrm_back_init(void)
 {
 	int i;
@@ -138,11 +159,19 @@ static int __init pvdrm_back_init(void)
 	if (!xen_domain())
 		return -ENODEV;
 
-	threads = num_online_cpus();
-
-	for (i = 0; i < threads; ++i) {
+	pvdrm_back_core = kzalloc(sizeof(pvdrm_back_core_t), GFP_KERNEL);
+	if (!pvdrm_back_core) {
+		BUG();
+		return -ENOMEM;
 	}
 
+	// threads = num_online_cpus();
+	// for (i = 0; i < threads; ++i) {
+	// }
+	spin_lock_init(&pvdrm_back_core->req_lock);
+	init_waitqueue_head(&pvdrm_back_core->req);
+
+	kthread_run(pvdrm_thread_main, (void*)pvdrm_back_core, "pvdrm-back");
 	printk(KERN_INFO "Initialising PVDRM backend driver.\n");
 
 	return xenbus_register_backend(&pvdrm_back_driver);

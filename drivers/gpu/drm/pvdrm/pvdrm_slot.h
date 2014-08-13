@@ -78,13 +78,18 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 	return ((uint8_t*)slot) + offsetof(struct pvdrm_slot, __payload);
 }
 
+struct pvdrm_slot_internal {
+	void* addr;
+	struct page* page;
+	grant_ref_t ref;
+	bool used;
+};
+
 struct pvdrm_slots {
 	struct semaphore sema;
 	spinlock_t lock;
-	struct pvdrm_slot* entries[PVDRM_SLOT_NR];
-	struct page* pages[PVDRM_SLOT_NR];
-	grant_ref_t handles[PVDRM_SLOT_NR];
-	uint8_t used[PVDRM_SLOT_NR];
+	struct pvdrm_slot_internal counter;
+	struct pvdrm_slot_internal internals[PVDRM_SLOT_NR];
 };
 
 struct pvdrm_device;

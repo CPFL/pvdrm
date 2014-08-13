@@ -37,38 +37,58 @@
 #include "pvdrm_drm.h"
 #include "pvdrm_slot.h"
 
+static int init_slot_internal(grant_ref_t* gref_head, struct pvdrm_slot_internal* internal)
+{
+	struct page* page;
+	uintptr_t pfn, mfn;
+	grant_ref_t ref = gnttab_claim_grant_reference(gref_head);
+
+	if ((page = alloc_page(GFP_HIGHUSER))) {
+		BUG();
+		return -ENOSYS;
+	}
+
+	pfn = page_to_pfn(page);
+	mfn = pfn_to_mfn(pfn);
+	gnttab_grant_foreign_access_ref(ref, /* DOM0 */ 0, mfn, 0);
+
+	internal->addr = NULL;
+	internal->page = page;
+	internal->ref = ref;
+	internal->used = false;
+
+	return 0;
+}
+
+
 int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 {
 	int i;
+	int ret;
 	struct pvdrm_slots* slots;
 	grant_ref_t gref_head;
 
+	ret = 0;
 	slots = &pvdrm->slots;
 	sema_init(&slots->sema, PVDRM_SLOT_NR);
 	spin_lock_init(&slots->lock);
 
-	if (gnttab_alloc_grant_references(PVDRM_SLOT_NR, &gref_head)) {
+	if (gnttab_alloc_grant_references(PVDRM_SLOT_NR + 1, &gref_head)) {
 		BUG();
 		return -ENOSYS;
 	}
 
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
-		struct page* page;
-		uintptr_t pfn, mfn;
-		grant_ref_t ref = gnttab_claim_grant_reference(&gref_head);
-
-		if ((page = alloc_page(GFP_HIGHUSER))) {
-			BUG();
-			return -ENOSYS;
+		ret = init_slot_internal(&gref_head, &slots->internals[i]);
+		if (ret) {
+			return ret;
 		}
+	}
 
-		pfn = page_to_pfn(page);
-		mfn = pfn_to_mfn(pfn);
-		gnttab_grant_foreign_access_ref(ref, /* DOM0 */ 0, mfn, 0);
-
-		slots->pages[i] = page;
-		slots->handles[i] = ref;
-		slots->used[i] = 0;
+	// Allocate counter.
+	init_slot_internal(&gref_head, &slots->counter);
+	if (ret) {
+		return ret;
 	}
 
 	gnttab_free_grant_references(gref_head);
@@ -89,20 +109,20 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 	down(&slots->sema);
 	spin_lock_irqsave(&slots->lock, flags);
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
-		if (!slots->used[i]) {
-			slots->used[i] = 1;
+		if (!slots->internals[i].used) {
+			slots->internals[i].used = true;
 			break;
 		}
 	}
 
 	BUG_ON(i == PVDRM_SLOT_NR);
 
-	if (slots->entries[i]) {
-		slot = slots->entries[i];
+	if (slots->internals[i].addr) {
+		slot = slots->internals[i].addr;
 	} else {
-		slot = kmap(slots->pages[i]);
+		slot = kmap(slots->internals[i].page);
 		slot->__id = i;
-		slots->entries[i] = slot;
+		slots->internals[i].addr = slot;
 	}
 
 	spin_unlock_irqrestore(&slots->lock, flags);
@@ -120,8 +140,8 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 
 	spin_lock_irqsave(&slots->lock, flags);
 
-	BUG_ON(slots->used[slot->__id] == 0);
-	slots->used[slot->__id] = 0;
+	BUG_ON(!slots->internals[slot->__id].used);
+	slots->internals[slot->__id].used = false;
 
 	spin_unlock_irqrestore(&slots->lock, flags);
 	up(&slots->sema);
@@ -130,6 +150,9 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 {
 	/* TODO: Implement it, emitting fence here */
+	struct pvdrm_slots* slots;
+	slots = &pvdrm->slots;
+	BUG_ON(!slots->internals[slot->__id].used);
 	mb();
 	return pvdrm_fence_wait(&slot->__fence, false);
 }
