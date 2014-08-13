@@ -27,6 +27,7 @@
 #include "drmP.h"
 
 #include "pvdrm_slot.h"
+#include "pvdrm_ttm.h"
 
 #define DRIVER_AUTHOR		"Yusuke Suzuki"
 
@@ -42,6 +43,7 @@ struct pvdrm_device {
 	struct drm_device* dev;
 	int dom0;
 	struct pvdrm_slots slots;
+	struct pvdrm_ttm ttm;
 };
 
 #endif  /* PVDRM_DRM_H_ */

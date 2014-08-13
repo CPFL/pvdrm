@@ -22,12 +22,68 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "drmP.h"
+#include "drm.h"
+#include "drm_crtc_helper.h"
+
+#include "pvdrm_drm.h"
 #include "pvdrm_ttm.h"
+
+static int pvdrm_ttm_mem_global_init(struct drm_global_reference* ref)
+{
+	return ttm_mem_global_init(ref->object);
+}
+
+static void pvdrm_ttm_mem_global_release(struct drm_global_reference* ref)
+{
+	ttm_mem_global_release(ref->object);
+}
+
+int pvdrm_ttm_global_init(struct pvdrm_device* pvdrm)
+{
+	struct drm_global_reference* global_ref;
+	int ret = 0;
+
+	// init mem_global_ref
+	global_ref = &pvdrm->ttm.mem_global_ref;
+	global_ref->global_type = DRM_GLOBAL_TTM_MEM;
+	global_ref->size = sizeof(struct ttm_mem_global);
+	global_ref->init = &pvdrm_ttm_mem_global_init;
+	global_ref->release = &pvdrm_ttm_mem_global_release;
+	ret = drm_global_item_ref(global_ref);
+	if (ret) {
+		BUG();
+		return ret;
+	}
+
+	// init bo_global_ref
+	pvdrm->ttm.bo_global_ref.mem_glob = pvdrm->ttm.mem_global_ref.object;
+	global_ref = &pvdrm->ttm.bo_global_ref.ref;
+	global_ref->global_type = DRM_GLOBAL_TTM_BO;
+	global_ref->size = sizeof(struct ttm_bo_global);
+	global_ref->init = &ttm_bo_global_init;
+	global_ref->release = &ttm_bo_global_release;
+	ret = drm_global_item_ref(global_ref);
+	if (ret) {
+		BUG();
+		return ret;
+	}
+
+	return ret;
+}
 
 int
 pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	return 0;
+	/* FIXME: We should implement ttm shadow memory on the guest side. */
+	struct drm_file* file_priv = filp->private_data;
+	struct pvdrm_device* pvdrm = file_priv->minor->dev->dev_private;
+
+	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
+		return drm_mmap(filp, vma);
+	}
+
+	return ttm_bo_mmap(filp, vma, &pvdrm->ttm.bdev);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

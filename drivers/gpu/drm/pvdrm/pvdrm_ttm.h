@@ -26,6 +26,23 @@
 
 #include <linux/module.h>
 
+#include "ttm/ttm_bo_api.h"
+#include "ttm/ttm_bo_driver.h"
+#include "ttm/ttm_placement.h"
+#include "ttm/ttm_memory.h"
+#include "ttm/ttm_module.h"
+
+#define DRM_FILE_PAGE_OFFSET (0x100000000ULL >> PAGE_SHIFT)
+
+struct pvdrm_ttm {
+	struct drm_global_reference mem_global_ref;
+	struct ttm_bo_global_ref bo_global_ref;
+	struct ttm_bo_device bdev;
+};
+
+struct pvdrm_device;
+
+int pvdrm_ttm_init(struct pvdrm_device* pvdrm);
 int pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma);
 
 #endif  /* PVDRM_TTM_H_ */

@@ -33,7 +33,7 @@ int pvdrm_gem_object_init(struct drm_gem_object *obj)
 	return 0;
 }
 
-void pvdrm_gem_object_free(struct drm_gem_object *gobj)
+void pvdrm_gem_object_free(struct drm_gem_object *obj)
 {
 }
 
