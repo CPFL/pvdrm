@@ -97,8 +97,15 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 	/* In this phase, we can swich ioctl implementation to nouveau or
 	 * other drivers.
 	 */
+	int ret = 0;
 	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
-	return drm_xenbus_init(&pvdrm_drm_driver, xbdev);
+	ret = drm_xenbus_init(&pvdrm_drm_driver, xbdev);
+	if (ret) {
+		BUG();
+		return ret;
+	}
+	xenbus_switch_state(xbdev, XenbusStateInitialised);
+	return ret;
 }
 
 static void pvdrm_remove(struct xenbus_device *xbdev)
@@ -111,7 +118,7 @@ static void pvdrm_connect(struct xenbus_device *xbdev)
 	// int err = xenbus_alloc_evtchn(xbdev, &info->evtchn);
 }
 
-static void pvdrmback_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
+static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
 {
 	switch (backend_state) {
 	case XenbusStateInitialising:
@@ -142,7 +149,7 @@ static DEFINE_XENBUS_DRIVER(pvdrm, "pvdrm",
 	.probe = pvdrm_probe,
 	.remove = pvdrm_remove,
 	/* .resume = pvdrm_resume, */
-	.otherend_changed = pvdrmback_changed,
+	.otherend_changed = backend_changed,
 	/* .is_ready = pvdrm_is_ready, */
 );
 

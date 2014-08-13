@@ -89,10 +89,11 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 
 		/* OK, connect it. */
 		/* TODO: Implement it */
+		ret = xenbus_switch_state(xbdev, XenbusStateConnected);
 		break;
 
 	case XenbusStateClosing:
-		xenbus_switch_state(xbdev, XenbusStateClosing);
+		ret = xenbus_switch_state(xbdev, XenbusStateClosing);
 		break;
 
 	case XenbusStateClosed:
@@ -105,8 +106,12 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		break;
 
 	default:
-		xenbus_dev_fatal(xbdev, -EINVAL, "saw state %d at frontend", frontend_state);
+		ret = -EINVAL;
 		break;
+	}
+
+	if (ret) {
+		xenbus_dev_fatal(xbdev, ret, "saw state %d at frontend", frontend_state);
 	}
 }
 
