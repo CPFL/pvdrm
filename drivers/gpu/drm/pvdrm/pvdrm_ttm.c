@@ -72,6 +72,17 @@ int pvdrm_ttm_global_init(struct pvdrm_device* pvdrm)
 	return ret;
 }
 
+void pvdrm_ttm_global_release(struct pvdrm_device* pvdrm)
+{
+	if (pvdrm->ttm.mem_global_ref.release == NULL) {
+		return;
+	}
+
+	drm_global_item_unref(&pvdrm->ttm.bo_global_ref.ref);
+	drm_global_item_unref(&pvdrm->ttm.mem_global_ref);
+	pvdrm->ttm.mem_global_ref.release = NULL;
+}
+
 int
 pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 {
