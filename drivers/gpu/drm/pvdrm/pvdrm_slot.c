@@ -162,6 +162,7 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	BUG_ON(!slots->internals[slot->__id].used);
 
 	/* Request slot, increment counter. */
+	mb();
 	atomic_inc(&slots->counter->count);
 
 	/* Wait. */

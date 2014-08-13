@@ -83,6 +83,7 @@ static int process_slot(struct pvdrm_slot* slot)
 	ret = 0;
 	/* Processing slot. */
 
+	slot->ret = ret;
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, 42);
 	return ret;
