@@ -25,11 +25,20 @@
 #define PVDRM_GEM_H_
 
 #include "drmP.h"
+#include "nouveau_drm.h"
 
+struct drm_pvdrm_gem_object {
+	struct drm_gem_object base;
+	uint32_t handle;
+	struct drm_nouveau_gem_info host;
+};
+
+int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 int pvdrm_gem_object_init(struct drm_gem_object *obj);
 void pvdrm_gem_object_free(struct drm_gem_object *gobj);
 int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file);
 void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file);
+int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result);
 
 #endif  /* PVDRM_GEM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

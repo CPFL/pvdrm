@@ -34,6 +34,7 @@
 /* Include nouveau's abi16 header directly. */
 #include "../nouveau/nouveau_abi16.h"
 
+#include "pvdrm_gem.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
@@ -53,10 +54,25 @@
 	\
 	return ret\
 
+int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size)
+{
+	struct pvdrm_device* pvdrm;
+	int ret;
+	pvdrm = dev->dev_private;
+	{
+		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
+		slot->code = (code);
+		memcpy(pvdrm_slot_payload(slot), data, size);
+		ret = pvdrm_slot_request(pvdrm, slot);
+		memcpy(data, pvdrm_slot_payload(slot), size);
+		pvdrm_slot_free(pvdrm, slot);
+	}
+	return ret;
+}
 
 int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GETPARAM, struct drm_nouveau_getparam);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GETPARAM, data, sizeof(struct drm_nouveau_getparam));
 }
 
 int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file_priv)
@@ -66,49 +82,49 @@ int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struc
 
 int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, struct drm_nouveau_channel_alloc);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, data, sizeof(struct drm_nouveau_channel_alloc));
 }
 
 int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, struct drm_nouveau_channel_free);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, data, sizeof(struct drm_nouveau_channel_free));
 }
 
 int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GROBJ_ALLOC, struct drm_nouveau_grobj_alloc);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GROBJ_ALLOC, data, sizeof(struct drm_nouveau_grobj_alloc));
 }
 
 int pvdrm_nouveau_abi16_ioctl_notifierobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_NOTIFIEROBJ_ALLOC, struct drm_nouveau_notifierobj_alloc);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_NOTIFIEROBJ_ALLOC, data, sizeof(struct drm_nouveau_notifierobj_alloc));
 }
 
 int pvdrm_nouveau_abi16_ioctl_gpuobj_free(struct drm_device *dev, void *data, struct drm_file *file_priv)
 {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GPUOBJ_FREE, struct drm_nouveau_gpuobj_free);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GPUOBJ_FREE, data, sizeof(struct drm_nouveau_gpuobj_free));
 }
 
 int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_file *file_priv) {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GEM_NEW, struct drm_nouveau_gem_new);
+	struct drm_pvdrm_gem_object* result = NULL;
+	return pvdrm_gem_object_new(dev, file_priv, data, &result);
 }
 
 int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file_priv) {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, struct drm_nouveau_gem_pushbuf);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, data, sizeof(struct drm_nouveau_gem_pushbuf));
 }
 
 int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file_priv) {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, struct drm_nouveau_gem_cpu_prep);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, data, sizeof(struct drm_nouveau_gem_cpu_prep));
 }
 
 int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct drm_file *file_priv) {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, struct drm_nouveau_gem_cpu_fini);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, data, sizeof(struct drm_nouveau_gem_cpu_fini));
 }
 
 int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file_priv) {
-	DEFINE_IOCTL_STUB(PVDRM_IOCTL_NOUVEAU_GEM_INFO, struct drm_nouveau_gem_info);
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
 }
-
 
 struct drm_ioctl_desc pvdrm_nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GETPARAM, pvdrm_nouveau_abi16_ioctl_getparam, DRM_UNLOCKED|DRM_AUTH),

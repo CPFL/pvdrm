@@ -27,6 +27,14 @@
 #include "drm_crtc_helper.h"
 
 #include "pvdrm_gem.h"
+#include "pvdrm_slot.h"
+#include "pvdrm_nouveau_abi16.h"
+
+int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	/* Map gem object here. */
+	return 0;
+}
 
 int pvdrm_gem_object_init(struct drm_gem_object *obj)
 {
@@ -35,6 +43,8 @@ int pvdrm_gem_object_init(struct drm_gem_object *obj)
 
 void pvdrm_gem_object_free(struct drm_gem_object *obj)
 {
+	drm_gem_object_release(obj);
+	kfree(obj);
 }
 
 int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file)
@@ -44,6 +54,68 @@ int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file)
 
 void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file)
 {
+}
+
+static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, const struct drm_nouveau_gem_info* host)
+{
+	struct drm_pvdrm_gem_object *obj;
+
+	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	if (!obj) {
+		goto free;
+	}
+
+	if (drm_gem_object_init(dev, &obj->base, host->size) != 0) {
+		goto free;
+	}
+
+	if (dev->driver->gem_init_object != NULL &&
+	    dev->driver->gem_init_object(&obj->base) != 0) {
+		goto fput;
+	}
+
+	/* Store host information. */
+	obj->handle = (uint32_t)-1;
+	memcpy(&obj->host, host, sizeof(obj->host));
+
+	return obj;
+fput:
+	/* Object_init mangles the global counters - readjust them. */
+	fput(obj->base.filp);
+free:
+	kfree(obj);
+	return NULL;
+}
+
+int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result)
+{
+	struct drm_pvdrm_gem_object *obj;
+	int ret;
+
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
+	if (ret) {
+		return ret;
+	}
+
+	obj = pvdrm_gem_alloc_object(dev, &req_out->info);
+	if (obj == NULL) {
+		return -ENOMEM;
+	}
+
+	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
+	if (ret) {
+		pvdrm_gem_object_free(&obj->base);
+		return ret;
+	}
+
+	/* Drop reference from allocate - handle holds it now */
+	drm_gem_object_unreference(&obj->base);
+
+	/* Adjust gem information for guest environment. */
+	req_out->info.handle = obj->handle;
+
+	*result = obj;
+	return 0;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

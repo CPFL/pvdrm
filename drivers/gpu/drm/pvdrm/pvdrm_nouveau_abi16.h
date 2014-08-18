@@ -28,5 +28,7 @@
 
 extern struct drm_ioctl_desc pvdrm_nouveau_ioctls[];
 
+int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size);
+
 #endif  /* PVDRM_NOUVEAU_ABI16_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

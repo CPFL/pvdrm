@@ -47,17 +47,22 @@
 #include "pvdrm_gem.h"
 #include "pvdrm_irq.h"
 #include "pvdrm_load.h"
-#include "pvdrm_ttm.h"
 #include "pvdrm_vblank.h"
 
 #include "pvdrm_nouveau_abi16.h"
+
+static const struct vm_operations_struct pvdrm_gem_vm_ops = {
+	.fault = pvdrm_gem_fault,
+	.open = drm_gem_vm_open,
+	.close = drm_gem_vm_close,
+};
 
 static const struct file_operations pvdrm_fops = {
 	.owner = THIS_MODULE,
 	.open = drm_open,
 	.release = drm_release,
 	.unlocked_ioctl = drm_ioctl,
-	.mmap = pvdrm_ttm_mmap,
+	.mmap = drm_gem_mmap,
 	.poll = drm_poll,
 	.fasync = drm_fasync,
 	.read = drm_read,
@@ -77,6 +82,8 @@ static struct drm_driver pvdrm_drm_driver = {
 	.gem_free_object  = pvdrm_gem_object_free,
 	.gem_open_object  = pvdrm_gem_object_open,
 	.gem_close_object = pvdrm_gem_object_close,
+	.gem_vm_ops = &pvdrm_gem_vm_ops,
+
 	.fops   = &pvdrm_fops,
 	.irq_handler = pvdrm_irq_handler,
 
