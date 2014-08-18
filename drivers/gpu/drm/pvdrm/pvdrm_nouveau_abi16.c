@@ -38,22 +38,6 @@
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
-#define DEFINE_IOCTL_STUB(__code, __req)\
-	struct pvdrm_device* pvdrm;\
-	int ret;\
-	\
-	pvdrm = dev->dev_private;\
-	{\
-		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);\
-		slot->code = (__code);\
-		memcpy(pvdrm_slot_payload(slot), data, sizeof(__req));\
-		ret = pvdrm_slot_request(pvdrm, slot);\
-		memcpy(data, pvdrm_slot_payload(slot), sizeof(__req));\
-		pvdrm_slot_free(pvdrm, slot);\
-	}\
-	\
-	return ret\
-
 int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size)
 {
 	struct pvdrm_device* pvdrm;

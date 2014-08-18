@@ -38,6 +38,7 @@
 #include "pvdrm_fence.h"
 
 enum {
+	/* ioctls. */
 	PVDRM_IOCTL_NOUVEAU_GETPARAM,
 	/* PVDRM_IOCTL_NOUVEAU_SETPARAM, */
 	PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC,
@@ -50,6 +51,23 @@ enum {
 	PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP,
 	PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI,
 	PVDRM_IOCTL_NOUVEAU_GEM_INFO,
+
+	/* gem operations. */
+	PVDRM_GEM_NOUVEAU_GEM_FREE,
+	PVDRM_GEM_NOUVEAU_GEM_OPEN,
+	PVDRM_GEM_NOUVEAU_GEM_CLOSE,
+};
+
+struct drm_pvdrm_gem_free {
+	uint32_t handle;
+};
+
+struct drm_pvdrm_gem_close {
+	uint32_t handle;
+};
+
+struct drm_pvdrm_gem_open {
+	uint32_t handle;
 };
 
 struct pvdrm_mapped_counter {
@@ -80,6 +98,7 @@ struct pvdrm_slot {
 		struct drm_nouveau_gem_cpu_prep gem_cpu_prep;
 		struct drm_nouveau_gem_cpu_fini gem_cpu_fini;
 		struct drm_nouveau_gem_info gem_info;
+		struct drm_pvdrm_gem_free gem_free;
 	};
 };
 

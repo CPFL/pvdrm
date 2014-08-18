@@ -26,14 +26,27 @@
 #include "drm.h"
 #include "drm_crtc_helper.h"
 
+#include "pvdrm.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-	/* Map gem object here. */
-	return 0;
+	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
+	struct drm_device *dev = obj->base.dev;
+	struct pvdrm_device* pvdrm = dev->dev_private;
+	pgoff_t page_offset;
+	unsigned long pfn;
+	int ret = 0;
+	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
+
+	/* Allocate pfn, pin it and pass it as memory window. */
+	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >> PAGE_SHIFT;
+
+	/* FIXME: Implement it. */
+
+	return ret;
 }
 
 int pvdrm_gem_object_init(struct drm_gem_object *obj)
@@ -41,19 +54,38 @@ int pvdrm_gem_object_init(struct drm_gem_object *obj)
 	return 0;
 }
 
-void pvdrm_gem_object_free(struct drm_gem_object *obj)
+void pvdrm_gem_object_free(struct drm_gem_object *gem)
 {
-	drm_gem_object_release(obj);
+	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
+	struct drm_device *dev = obj->base.dev;
+	struct drm_pvdrm_gem_free req = {
+		.handle = obj->host.handle,
+	};
+	int ret = 0;
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
+	drm_gem_object_release(&obj->base);
 	kfree(obj);
 }
 
-int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file)
+int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
-	return 0;
+	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
+	struct drm_device *dev = obj->base.dev;
+	struct drm_pvdrm_gem_close req = {
+		.handle = obj->host.handle,
+	};
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_OPEN, &req, sizeof(struct drm_pvdrm_gem_open));
 }
 
-void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file)
+void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 {
+	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
+	struct drm_device *dev = obj->base.dev;
+	struct drm_pvdrm_gem_close req = {
+		.handle = obj->host.handle,
+	};
+	int ret = 0;
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_pvdrm_gem_close));
 }
 
 static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, const struct drm_nouveau_gem_info* host)
