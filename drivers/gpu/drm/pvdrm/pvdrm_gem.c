@@ -33,19 +33,20 @@
 
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
+	int ret = 0;
+#if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
 	struct drm_device *dev = obj->base.dev;
 	struct pvdrm_device* pvdrm = dev->dev_private;
 	pgoff_t page_offset;
 	unsigned long pfn;
-	int ret = 0;
 	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
 
 	/* Allocate pfn, pin it and pass it as memory window. */
 	page_offset = ((unsigned long)vmf->virtual_address - vma->vm_start) >> PAGE_SHIFT;
 
 	/* FIXME: Implement it. */
-
+#endif
 	return ret;
 }
 
