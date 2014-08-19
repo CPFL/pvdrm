@@ -123,6 +123,8 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	int ret;
 	struct pvdrm_back_device* info;
 
+	printk(KERN_INFO "Proving PVDRM backend driver.\n");
+
 	info = kzalloc(sizeof(struct pvdrm_back_device), GFP_KERNEL);
 	if (!info) {
 		return -ENOMEM;
@@ -140,6 +142,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 
 static int pvdrm_back_remove(struct xenbus_device *xbdev)
 {
+	printk(KERN_INFO "Removing PVDRM backend driver.\n");
 	return 0;
 }
 
@@ -147,6 +150,9 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 {
 	struct pvdrm_back_device* info;
 	int ret = 0;
+
+	printk(KERN_INFO "Frontend changed PVDRM backend driver.\n");
+
 	info = dev_get_drvdata(&xbdev->dev);
 
 	printk(KERN_INFO "%s", xenbus_strstate(frontend_state));
