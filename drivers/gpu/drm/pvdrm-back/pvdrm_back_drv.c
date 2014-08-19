@@ -54,27 +54,22 @@ struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
 	wait_queue_head_t cond;
 
-	/* counter */
 	grant_ref_t counter_ref;
-	struct pvdrm_mapped_counter* counter;
+	struct pvdrm_mapped* mapped;
 	uint32_t cursor;
-
-	/* slots */
-	grant_ref_t slots_ref[PVDRM_SLOT_NR];
-	struct pvdrm_slot* slots[PVDRM_SLOT_NR];
 };
 
 static uint64_t pvdrm_back_device_count(struct pvdrm_back_device* info)
 {
-	return atomic_read(&info->counter->count);
+	return atomic_read(&info->mapped->count);
 }
 
 static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 {
 	uint32_t id;
-	atomic_dec(&info->counter->count);
-	id = info->counter->ring[info->cursor++ % PVDRM_SLOT_NR];
-	return info->slots[id];
+	atomic_dec(&info->mapped->count);
+	id = info->mapped->ring[info->cursor++ % PVDRM_SLOT_NR];
+	return &info->mapped->slots[id];
 }
 
 static int process_slot(struct pvdrm_slot* slot)

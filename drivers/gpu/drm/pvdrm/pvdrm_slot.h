@@ -24,6 +24,7 @@
 #ifndef PVDRM_SLOT_H_
 #define PVDRM_SLOT_H_
 
+#include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
@@ -39,7 +40,7 @@
 
 enum {
 	/* ioctls. */
-	PVDRM_IOCTL_NOUVEAU_GETPARAM,
+	PVDRM_IOCTL_NOUVEAU_GETPARAM = 0,
 	/* PVDRM_IOCTL_NOUVEAU_SETPARAM, */
 	PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC,
 	PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE,
@@ -70,18 +71,13 @@ struct drm_pvdrm_gem_open {
 	uint32_t handle;
 };
 
-struct pvdrm_mapped_counter {
-	atomic_t count;
-	uint32_t ring[PVDRM_SLOT_NR];
-};
-
 struct pvdrm_slot {
 	/* Headers */
 	uint32_t __id;
 	struct pvdrm_fence __fence;
 
-	uint32_t code;
-	int ret;
+	int32_t code;
+	int32_t ret;
 	union {
 		uint64_t __payload;  /* To calculate palyload address. */
 
@@ -106,20 +102,22 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 	return ((uint8_t*)slot) + offsetof(struct pvdrm_slot, __payload);
 }
 
-struct pvdrm_slot_internal {
+struct pvdrm_mapped {
+        struct pvdrm_slot slots[PVDRM_SLOT_NR];
+	uint32_t ring[PVDRM_SLOT_NR];
+	atomic_t count;
+};
+
+struct pvdrm_gref {
 	void* addr;
 	struct page* page;
 	grant_ref_t ref;
-	bool used;
 };
 
 struct pvdrm_slots {
 	struct semaphore sema;
 	spinlock_t lock;
-
-	struct pvdrm_mapped_counter* counter;
-	struct pvdrm_slot_internal counter_internal;
-	struct pvdrm_slot_internal internals[PVDRM_SLOT_NR];
+        struct pvdrm_gref ref;
 };
 
 struct pvdrm_device;

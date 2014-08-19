@@ -127,7 +127,6 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 
 static int pvdrm_connect(struct xenbus_device *xbdev)
 {
-        struct xenbus_transaction xbt;
         struct drm_device* dev;
         struct pvdrm_device* pvdrm;
         int ret;
@@ -138,17 +137,36 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
         dev = dev_get_drvdata(&xbdev->dev);
         pvdrm = dev->dev_private;
-
-        pvdrm_slot_init(pvdrm);
+#if 1
+        // pvdrm_slot_init(pvdrm);
 
 	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 
-	ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.counter_internal.ref);
-        if (ret) {
-                xenbus_dev_fatal(xbdev, ret, "writing counter-ref");
-                return ret;
-        }
+        {
+                struct xenbus_transaction xbt;
+again:
+                ret = xenbus_transaction_start(&xbt);
+                if (ret) {
+                        xenbus_dev_fatal(xbdev, ret, "starting transaction");
+                        return ret;
+                }
 
+                ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.ref.ref);
+                if (ret) {
+                        xenbus_dev_fatal(xbdev, ret, "writing counter-ref");
+                        return ret;
+                }
+
+                ret = xenbus_transaction_end(xbt, 0);
+                if (ret) {
+                        if (ret == -EAGAIN) {
+                                goto again;
+                        }
+                        xenbus_dev_fatal(xbdev, ret, "completing transaction");
+                        return ret;
+                }
+        }
+#endif
 	xenbus_switch_state(xbdev, XenbusStateConnected);
 	printk(KERN_INFO "PVDRM: setting is done.\n");
 
