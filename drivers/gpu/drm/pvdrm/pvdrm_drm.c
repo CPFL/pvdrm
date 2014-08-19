@@ -101,16 +101,18 @@ static struct drm_driver pvdrm_drm_driver = {
 
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
-	/* In this phase, we can swich ioctl implementation to nouveau or
-	 * other drivers.
-	 */
+	/* In this phase, we can swich ioctl implementation to nouveau or other drivers. */
 	int ret = 0;
+
+	printk(KERN_INFO "Proving PVDRM frontend driver.\n");
+
 	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
 	ret = drm_xenbus_init(&pvdrm_drm_driver, xbdev);
 	if (ret) {
 		BUG();
 		return ret;
 	}
+	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
 	xenbus_switch_state(xbdev, XenbusStateInitialised);
 	return ret;
 }
