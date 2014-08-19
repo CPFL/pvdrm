@@ -127,7 +127,7 @@ static void pvdrm_connect(struct xenbus_device *xbdev)
 
 static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
 {
-	printk(KERN_INFO "Backend PVDRM driver state changed %s.\n", xenbus_strstate(frontend_state));
+	printk(KERN_INFO "Backend PVDRM driver state changed %s.\n", xenbus_strstate(backend_state));
 
 	switch (backend_state) {
 	case XenbusStateInitialising:
