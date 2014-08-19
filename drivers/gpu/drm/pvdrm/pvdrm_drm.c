@@ -112,6 +112,7 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 		BUG();
 		return ret;
 	}
+
 	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
 
         xenbus_switch_state(xbdev, XenbusStateInitialised);
@@ -124,14 +125,15 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 	drm_xenbus_exit(&pvdrm_drm_driver, xbdev);
 }
 
-static void pvdrm_connect(struct xenbus_device *xbdev)
+static int pvdrm_connect(struct xenbus_device *xbdev)
 {
         struct xenbus_transaction xbt;
         struct drm_device* dev;
         struct pvdrm_device* pvdrm;
         int ret;
 
-	xenbus_switch_state(xbdev, XenbusStateConnected);
+        ret = 0;
+
 	printk(KERN_INFO "PVDRM CONNECTED.\n");
 
         dev = dev_get_drvdata(&xbdev->dev);
@@ -139,11 +141,7 @@ static void pvdrm_connect(struct xenbus_device *xbdev)
 
         pvdrm_slot_init(pvdrm);
 
-        ret = xenbus_transaction_start(&xbt);
-        if (ret) {
-                xenbus_dev_fatal(xbdev, ret, "starting transaction");
-                return ret;
-        }
+	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 
 	ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.counter_internal.ref);
         if (ret) {
@@ -151,11 +149,10 @@ static void pvdrm_connect(struct xenbus_device *xbdev)
                 return ret;
         }
 
-        ret = xenbus_transaction_end(xbt, 0);
-        if (ret) {
-                xenbus_dev_fatal(xbdev, ret, "completing transaction");
-                return ret;
-        }
+	xenbus_switch_state(xbdev, XenbusStateConnected);
+	printk(KERN_INFO "PVDRM: setting is done.\n");
+
+        return 0;
 }
 
 static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
@@ -173,11 +170,11 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 
 	case XenbusStateInitWait:
 		pvdrm_connect(xbdev);
-		xenbus_switch_state(xbdev, XenbusStateConnected);
 		break;
 
 	case XenbusStateConnected:
                 /* Connected & Connected. */
+                printk(KERN_INFO "PVDRM: Ok, now connecting.\n");
 		break;
 
 	case XenbusStateClosing:

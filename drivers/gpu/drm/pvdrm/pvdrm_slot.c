@@ -43,7 +43,7 @@ static int init_slot_internal(grant_ref_t* gref_head, struct pvdrm_slot_internal
 	uintptr_t pfn, mfn;
 	grant_ref_t ref = gnttab_claim_grant_reference(gref_head);
 
-	if ((page = alloc_page(GFP_HIGHUSER))) {
+	if (!(page = alloc_page(GFP_HIGHUSER))) {
 		BUG();
 		return -ENOSYS;
 	}
@@ -68,6 +68,7 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	struct pvdrm_slots* slots;
 	grant_ref_t gref_head;
 
+        printk(KERN_INFO "PVDRM: Initializing pvdrm slots.\n");
 	ret = 0;
 	slots = &pvdrm->slots;
 	sema_init(&slots->sema, PVDRM_SLOT_NR);
@@ -86,6 +87,8 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	}
 	slots->counter_internal.addr = slots->counter = kmap(slots->counter_internal.page);
 
+        printk(KERN_INFO "PVDRM: Initialized pvdrm counter.\n");
+
 	/* Init slots. */
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
 		ret = init_slot_internal(&gref_head, &slots->internals[i]);
@@ -97,6 +100,8 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	}
 
 	gnttab_free_grant_references(gref_head);
+
+        printk(KERN_INFO "PVDRM: Initialized pvdrm slots.\n");
 
 	return 0;
 }

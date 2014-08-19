@@ -85,6 +85,7 @@ int drm_get_xenbus_dev(struct xenbus_device *xbdev, struct drm_driver *driver)
 
 	dev->xbdev = xbdev;
 	dev->dev = &xbdev->dev;
+    dev_set_drvdata(&xbdev->dev, dev);
 
 	mutex_lock(&drm_global_mutex);
 
@@ -96,7 +97,6 @@ int drm_get_xenbus_dev(struct xenbus_device *xbdev, struct drm_driver *driver)
 	}
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
-		dev_set_drvdata(&xbdev->dev, dev);
 		ret = drm_get_minor(dev, &dev->control, DRM_MINOR_CONTROL);
 		if (ret)
 			goto err_g1;
