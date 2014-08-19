@@ -99,7 +99,8 @@ static int thread_main(void *arg)
 	info = arg;
 
 	/* Kick state. */
-	ret = xenbus_switch_state(info->xbdev, XenbusStateConnected);
+	printk(KERN_INFO "Starting PVDRM backend thread.\n");
+	xenbus_switch_state(info->xbdev, XenbusStateConnected);
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(info->cond, pvdrm_back_device_count(info) || kthread_should_stop());
@@ -142,7 +143,13 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 
 static int pvdrm_back_remove(struct xenbus_device *xbdev)
 {
+	struct pvdrm_back_device* info = NULL;
+
 	printk(KERN_INFO "Removing PVDRM backend driver.\n");
+
+	info = dev_get_drvdata(&xbdev->dev);
+	kfree(info);
+
 	return 0;
 }
 
@@ -151,7 +158,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 	struct pvdrm_back_device* info;
 	int ret = 0;
 
-	printk(KERN_INFO "Frontend changed PVDRM backend driver.\n");
+	printk(KERN_INFO "Frontend changed PVDRM backend driver to state %s.\n", xenbus_strstate(frontend_state));
 
 	info = dev_get_drvdata(&xbdev->dev);
 
@@ -175,12 +182,12 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		break;
 
 	case XenbusStateClosing:
-		ret = xenbus_switch_state(xbdev, XenbusStateClosing);
+		xenbus_switch_state(xbdev, XenbusStateClosing);
 		break;
 
 	case XenbusStateClosed:
 		/* TODO: Implement it */
-		ret = xenbus_switch_state(xbdev, XenbusStateClosed);
+		xenbus_switch_state(xbdev, XenbusStateClosed);
 		if (xenbus_dev_is_online(xbdev)) {
 			break;
 		}

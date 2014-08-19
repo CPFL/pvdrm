@@ -122,11 +122,13 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 
 static void pvdrm_connect(struct xenbus_device *xbdev)
 {
-	// int err = xenbus_alloc_evtchn(xbdev, &info->evtchn);
+	xenbus_switch_state(xbdev, XenbusStateConnected);
 }
 
 static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
 {
+	printk(KERN_INFO "Backend PVDRM driver state changed %s.\n", xenbus_strstate(frontend_state));
+
 	switch (backend_state) {
 	case XenbusStateInitialising:
 	case XenbusStateInitialised:
