@@ -101,7 +101,9 @@ static int thread_main(void *arg)
 	/* Kick state. */
 	printk(KERN_INFO "Starting PVDRM backend thread.\n");
 	xenbus_switch_state(info->xbdev, XenbusStateConnected);
+	printk(KERN_INFO "PVDRM backend thread connected.\n");
 
+#if 0
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(info->cond, pvdrm_back_device_count(info) || kthread_should_stop());
 		if (kthread_should_stop()) {
@@ -116,6 +118,7 @@ static int thread_main(void *arg)
 			}
 		}
 	}
+#endif
 	return 0;
 }
 
