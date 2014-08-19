@@ -137,8 +137,8 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
         dev = dev_get_drvdata(&xbdev->dev);
         pvdrm = dev->dev_private;
-#if 1
-        // pvdrm_slot_init(pvdrm);
+
+        pvdrm_slot_init(pvdrm);
 
 	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 
@@ -166,7 +166,7 @@ again:
                         return ret;
                 }
         }
-#endif
+
 	xenbus_switch_state(xbdev, XenbusStateConnected);
 	printk(KERN_INFO "PVDRM: setting is done.\n");
 

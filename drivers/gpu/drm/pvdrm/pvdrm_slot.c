@@ -37,11 +37,24 @@
 #include "pvdrm_drm.h"
 #include "pvdrm_slot.h"
 
+static struct pvdrm_mapped* extract_mapped(struct pvdrm_slots* slots)
+{
+        return slots->ref.addr;
+}
+
+static bool is_used(struct pvdrm_slot* slot)
+{
+        return slot->code != PVDRM_UNUSED;
+}
+
 int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 {
 	int i;
 	int ret;
 	struct pvdrm_slots* slots;
+        struct pvdrm_mapped* mapped;
+        spinlock_t* lock;
+	struct semaphore* sema;
 	grant_ref_t gref_head;
 
         BUILD_BUG_ON(sizeof(struct pvdrm_mapped) <= PAGE_SIZE);
@@ -49,8 +62,12 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
         printk(KERN_INFO "PVDRM: Initializing pvdrm slots.\n");
 	ret = 0;
 	slots = &pvdrm->slots;
-	// sema_init(&slots->sema, PVDRM_SLOT_NR);
-	// spin_lock_init(&slots->lock);
+
+        sema = &slots->sema;
+	sema_init(sema, PVDRM_SLOT_NR);
+
+        lock = &slots->lock;
+        spin_lock_init(lock);
 
 	/* Allocate slot and counter ref. */
 	if (gnttab_alloc_grant_references(1, &gref_head)) {
@@ -63,6 +80,8 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
                 uintptr_t pfn, mfn;
                 grant_ref_t ref = gnttab_claim_grant_reference(&gref_head);
 
+                printk(KERN_INFO "PVDRM: Initialising pvdrm counter reference %u.\n", ref);
+
                 if (!(page = alloc_page(GFP_HIGHUSER))) {
                         BUG();
                         return -ENOMEM;
@@ -72,31 +91,25 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
                 mfn = pfn_to_mfn(pfn);
                 gnttab_grant_foreign_access_ref(ref, /* DOM0 */ 0, mfn, 0);
 
-                slots->ref.addr = NULL;
+                slots->ref.addr = kmap(page);
                 slots->ref.page = page;
                 slots->ref.ref = ref;
         }
 
-#if 0
+        mapped = extract_mapped(slots);
+
 	/* Init counter. */
-	init_slot_internal(&gref_head, &slots->counter_internal);
-	if (ret) {
-		return ret;
-	}
-	slots->counter_internal.addr = slots->counter = kmap(slots->counter_internal.page);
+        atomic_set(&mapped->count, 0);
 
         printk(KERN_INFO "PVDRM: Initialized pvdrm counter.\n");
 
 	/* Init slots. */
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
-		ret = init_slot_internal(&gref_head, &slots->internals[i]);
-		if (ret) {
-			return ret;
-		}
-                /* Writing ref values into counter's ring to notify to the host. */
-                slots->counter->ring[i] = slots->internals[i].ref;
+                struct pvdrm_slot* slot = &mapped->slot[i];
+                slot->__id = i;
+                slot->code = PVDRM_UNUSED;
+                mapped->ring[i] = (uint32_t)-1;
 	}
-#endif
 
 	gnttab_free_grant_references(gref_head);
 
@@ -113,36 +126,29 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 	struct pvdrm_mapped* mapped;
 	unsigned long flags;
 
-#if 0
 	slots = &pvdrm->slots;
-        mapped = slots->mapped;
+        mapped = extract_mapped(slots);
 
 	down(&slots->sema);
 	spin_lock_irqsave(&slots->lock, flags);
+
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
-		if (!slots->internals[i].used) {
-			slots->internals[i].used = true;
+		if (!is_used(&mapped->slot[i])) {
+                        slot = &mapped->slot[i];
+                        slot->code = PVDRM_HELD;
 			break;
 		}
 	}
 
 	BUG_ON(i == PVDRM_SLOT_NR);
 
-	if (slots->internals[i].addr) {
-		slot = slots->internals[i].addr;
-	} else {
-		slot = kmap(slots->internals[i].page);
-		slot->__id = i;
-		slots->internals[i].addr = slot;
-	}
 	spin_unlock_irqrestore(&slots->lock, flags);
 
 	/* Init slot. */
 	pvdrm_fence_init(&slot->__fence);
 	slot->ret = 0;
+
 	return slot;
-#endif
-        return NULL;
 }
 
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
@@ -151,18 +157,16 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	unsigned long flags;
 	struct pvdrm_mapped* mapped;
 
-#if 0
 	slots = &pvdrm->slots;
-        mapped = slots->mapped;
+        mapped = extract_mapped(slots);
 
 	spin_lock_irqsave(&slots->lock, flags);
 
-	BUG_ON(!slots->internals[slot->__id].used);
-	slots->internals[slot->__id].used = false;
+	BUG_ON(!is_used(slot));
+        slot->code = PVDRM_UNUSED;
 
 	spin_unlock_irqrestore(&slots->lock, flags);
 	up(&slots->sema);
-#endif
 }
 
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
@@ -173,14 +177,13 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	struct pvdrm_mapped* mapped;
 
 	slots = &pvdrm->slots;
-        mapped = slots->ref.addr;
+        mapped = extract_mapped(slots);
 
-#if 0
-	BUG_ON(!slots->internals[slot->__id].used);
+	BUG_ON(!is_used(slot));
 
 	/* Request slot, increment counter. */
-	mb();
-	atomic_inc(&slots->counter->count);
+	wmb();
+	atomic_inc(&mapped->count);
 
 	/* Wait. */
 	ret = pvdrm_fence_wait(&slot->__fence, false);
@@ -188,8 +191,6 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 		return ret;
 	}
 	return slot->ret;
-#endif
-        return 0;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

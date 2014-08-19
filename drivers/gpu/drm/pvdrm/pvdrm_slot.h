@@ -39,8 +39,12 @@
 #include "pvdrm_fence.h"
 
 enum {
+        /* used for unused flag. */
+        PVDRM_UNUSED = -1,
+        PVDRM_HELD = 0,
+
 	/* ioctls. */
-	PVDRM_IOCTL_NOUVEAU_GETPARAM = 0,
+	PVDRM_IOCTL_NOUVEAU_GETPARAM = 1,
 	/* PVDRM_IOCTL_NOUVEAU_SETPARAM, */
 	PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC,
 	PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE,
@@ -103,7 +107,7 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 }
 
 struct pvdrm_mapped {
-        struct pvdrm_slot slots[PVDRM_SLOT_NR];
+        struct pvdrm_slot slot[PVDRM_SLOT_NR];
 	uint32_t ring[PVDRM_SLOT_NR];
 	atomic_t count;
 };

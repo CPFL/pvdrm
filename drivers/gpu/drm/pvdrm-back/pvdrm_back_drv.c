@@ -69,7 +69,7 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 	uint32_t id;
 	atomic_dec(&info->mapped->count);
 	id = info->mapped->ring[info->cursor++ % PVDRM_SLOT_NR];
-	return &info->mapped->slots[id];
+	return &info->mapped->slot[id];
 }
 
 static int process_slot(struct pvdrm_slot* slot)
