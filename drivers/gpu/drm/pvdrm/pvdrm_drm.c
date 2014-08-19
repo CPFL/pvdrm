@@ -120,12 +120,12 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 		struct xenbus_transaction xbt;
 		ret = xenbus_transaction_start(&xbt);
 		if (ret) {
-			xenbus_dev_fatal(dev, ret, "starting transaction");
+			xenbus_dev_fatal(xbdev, ret, "starting transaction");
 			return ret;
 		}
 		ret = xenbus_transaction_end(xbt, 0);
 		if (ret) {
-			xenbus_dev_fatal(dev, ret, "completing transaction");
+			xenbus_dev_fatal(xbdev, ret, "completing transaction");
 			return ret;
 		}
 		xenbus_switch_state(xbdev, XenbusStateInitialised);
@@ -158,10 +158,10 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 		break;
 
 	case XenbusStateInitWait:
-		if (dev->state != XenbusStateInitialising) {
+		if (xbdev->state != XenbusStateInitialising) {
 			break;
 		}
-		xenbus_switch_state(dev, XenbusStateConnected);
+		xenbus_switch_state(xbdev, XenbusStateConnected);
 		break;
 
 	case XenbusStateConnected:
@@ -169,7 +169,7 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 		break;
 
 	case XenbusStateClosing:
-		xenbus_frontend_closed(dev);
+		xenbus_frontend_closed(xbdev);
 		break;
 	}
 }
