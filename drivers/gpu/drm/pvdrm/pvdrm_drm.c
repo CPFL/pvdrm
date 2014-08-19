@@ -113,7 +113,24 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 		return ret;
 	}
 	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
-	xenbus_switch_state(xbdev, XenbusStateInitialised);
+
+#if 0
+	/* Xenbus initialization. */
+	{
+		struct xenbus_transaction xbt;
+		ret = xenbus_transaction_start(&xbt);
+		if (ret) {
+			xenbus_dev_fatal(dev, ret, "starting transaction");
+			return ret;
+		}
+		ret = xenbus_transaction_end(xbt, 0);
+		if (ret) {
+			xenbus_dev_fatal(dev, ret, "completing transaction");
+			return ret;
+		}
+		xenbus_switch_state(xbdev, XenbusStateInitialised);
+	}
+#endif
 	return ret;
 }
 
@@ -138,7 +155,13 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 	case XenbusStateReconfigured:
 	case XenbusStateUnknown:
 	case XenbusStateClosed:
+		break;
+
 	case XenbusStateInitWait:
+		if (dev->state != XenbusStateInitialising) {
+			break;
+		}
+		xenbus_switch_state(dev, XenbusStateConnected);
 		break;
 
 	case XenbusStateConnected:
@@ -146,7 +169,7 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 		break;
 
 	case XenbusStateClosing:
-		xenbus_frontend_closed(xbdev);
+		xenbus_frontend_closed(dev);
 		break;
 	}
 }
@@ -161,7 +184,6 @@ static DEFINE_XENBUS_DRIVER(pvdrm, "pvdrm",
 	.remove = pvdrm_remove,
 	/* .resume = pvdrm_resume, */
 	.otherend_changed = backend_changed,
-	/* .is_ready = pvdrm_is_ready, */
 );
 
 static int __init pvdrm_init(void)

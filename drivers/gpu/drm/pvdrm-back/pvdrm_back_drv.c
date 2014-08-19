@@ -136,6 +136,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {
+		printk(KERN_INFO "PVDRM failed");
 		return ret;
 	}
 	return 0;
@@ -167,14 +168,16 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 	switch (frontend_state) {
 	case XenbusStateInitialising:
 		if (xbdev->state == XenbusStateClosed) {
+			printk(KERN_INFO "PVDRM xenbus is closed...\n");
 			xenbus_switch_state(xbdev, XenbusStateInitWait);
 		}
 		break;
 
 	case XenbusStateInitialised:
 	case XenbusStateConnected:
-		if (xbdev->state == XenbusStateConnected)
+		if (xbdev->state == XenbusStateConnected) {
 			break;
+		}
 
 		/* OK, connect it. */
 		/* TODO: Implement it */
