@@ -70,7 +70,7 @@ static const struct file_operations pvdrm_fops = {
 };
 
 static struct drm_driver pvdrm_drm_driver = {
-	.driver_features	= DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM,
+        .driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM,  /* DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM , */
 	.load       = pvdrm_load,
 	.unload     = pvdrm_unload,
 
