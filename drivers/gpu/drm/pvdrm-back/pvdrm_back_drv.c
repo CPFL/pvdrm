@@ -54,7 +54,7 @@ struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
 	wait_queue_head_t cond;
 
-	grant_ref_t counter_ref;
+	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
 	uint32_t cursor;
 };
@@ -97,6 +97,18 @@ static int thread_main(void *arg)
 	printk(KERN_INFO "Starting PVDRM backend thread.\n");
 	xenbus_switch_state(info->xbdev, XenbusStateConnected);
 	printk(KERN_INFO "PVDRM backend thread connected.\n");
+
+	{
+		void* addr;
+		ret = xenbus_scanf(XBT_NIL, info->xbdev->nodename, "counter-ref", "%u", &info->ref);
+		if (ret) {
+                        xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
+                        return ret;
+                }
+		xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
+		info->mapped = addr;
+		printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[42].__id);
+	}
 
 #if 0
 	while (!kthread_should_stop()) {
