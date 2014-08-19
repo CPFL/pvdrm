@@ -114,7 +114,6 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 	}
 	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
 
-#if 0
 	/* Xenbus initialization. */
 	{
 		struct xenbus_transaction xbt;
@@ -130,7 +129,7 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 		}
 		xenbus_switch_state(xbdev, XenbusStateInitialised);
 	}
-#endif
+
 	return ret;
 }
 
