@@ -114,21 +114,7 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 	}
 	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
 
-	/* Xenbus initialization. */
-	{
-		struct xenbus_transaction xbt;
-		ret = xenbus_transaction_start(&xbt);
-		if (ret) {
-			xenbus_dev_fatal(xbdev, ret, "starting transaction");
-			return ret;
-		}
-		ret = xenbus_transaction_end(xbt, 0);
-		if (ret) {
-			xenbus_dev_fatal(xbdev, ret, "completing transaction");
-			return ret;
-		}
-		xenbus_switch_state(xbdev, XenbusStateInitialised);
-	}
+        xenbus_switch_state(xbdev, XenbusStateInitialised);
 
 	return ret;
 }
@@ -140,7 +126,36 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 
 static void pvdrm_connect(struct xenbus_device *xbdev)
 {
+        struct xenbus_transaction xbt;
+        struct drm_device* dev;
+        struct pvdrm_device* pvdrm;
+        int ret;
+
 	xenbus_switch_state(xbdev, XenbusStateConnected);
+	printk(KERN_INFO "PVDRM CONNECTED.\n");
+
+        dev = dev_get_drvdata(&xbdev->dev);
+        pvdrm = dev->dev_private;
+
+        pvdrm_slot_init(pvdrm);
+
+        ret = xenbus_transaction_start(&xbt);
+        if (ret) {
+                xenbus_dev_fatal(xbdev, ret, "starting transaction");
+                return ret;
+        }
+
+	ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.counter_internal.ref);
+        if (ret) {
+                xenbus_dev_fatal(xbdev, ret, "writing counter-ref");
+                return ret;
+        }
+
+        ret = xenbus_transaction_end(xbt, 0);
+        if (ret) {
+                xenbus_dev_fatal(xbdev, ret, "completing transaction");
+                return ret;
+        }
 }
 
 static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
@@ -157,16 +172,12 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 		break;
 
 	case XenbusStateInitWait:
-#if 0
-		if (xbdev->state != XenbusStateInitialising) {
-			break;
-		}
-#endif
+		pvdrm_connect(xbdev);
 		xenbus_switch_state(xbdev, XenbusStateConnected);
 		break;
 
 	case XenbusStateConnected:
-		pvdrm_connect(xbdev);
+                /* Connected & Connected. */
 		break;
 
 	case XenbusStateClosing:

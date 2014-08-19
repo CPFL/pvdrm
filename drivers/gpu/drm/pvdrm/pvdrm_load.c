@@ -46,6 +46,7 @@ int pvdrm_load(struct drm_device *dev, unsigned long flags)
 	if (ret)
 		goto out;
 
+        printk(KERN_INFO "PVDRM: loaded.\n");
 out:
 	if (ret)
 		pvdrm_unload(dev);

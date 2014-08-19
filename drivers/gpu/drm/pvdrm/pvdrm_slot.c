@@ -79,14 +79,6 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 		return -ENOSYS;
 	}
 
-	/* Init slots. */
-	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
-		ret = init_slot_internal(&gref_head, &slots->internals[i]);
-		if (ret) {
-			return ret;
-		}
-	}
-
 	/* Init counter. */
 	init_slot_internal(&gref_head, &slots->counter_internal);
 	if (ret) {
@@ -94,9 +86,18 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	}
 	slots->counter_internal.addr = slots->counter = kmap(slots->counter_internal.page);
 
+	/* Init slots. */
+	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
+		ret = init_slot_internal(&gref_head, &slots->internals[i]);
+		if (ret) {
+			return ret;
+		}
+                /* Writing ref values into counter's ring to notify to the host. */
+                slots->counter->ring[i] = slots->internals[i].ref;
+	}
+
 	gnttab_free_grant_references(gref_head);
 
-	/* Then transfer this slots to host via xenbus. */
 	return 0;
 }
 
