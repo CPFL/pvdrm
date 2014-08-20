@@ -24,8 +24,8 @@
 
 #include "drmP.h"
 #include "drm.h"
-#include "drm_crtc_helper.h"
 
+#include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_ttm.h"
 
@@ -98,7 +98,7 @@ pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	/* FIXME: We should implement ttm shadow memory on the guest side. */
 	struct drm_file* file_priv = filp->private_data;
-	struct pvdrm_device* pvdrm = file_priv->minor->dev->dev_private;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(file_priv->minor->dev);
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
 		return drm_mmap(filp, vma);

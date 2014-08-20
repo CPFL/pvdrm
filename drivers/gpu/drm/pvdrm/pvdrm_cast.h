@@ -21,70 +21,45 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef PVDRM_CAST_H_
+#define PVDRM_CAST_H_
 
-#include "pvdrm_cast.h"
+#include <xen/xenbus.h>
+
+#include "drm.h"
+#include "drmP.h"
+
 #include "pvdrm_drm.h"
-#include "pvdrm_load.h"
-#include "pvdrm_slot.h"
 
-static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
+static inline struct pvdrm_device* drm_device_to_pvdrm(struct drm_device* dev)
 {
-	// pvdrm_slot_init(pvdrm);
-	return 0;
+        return dev->dev_private;
 }
 
-int pvdrm_load(struct drm_device *dev, unsigned long flags)
+static inline struct xenbus_device* drm_device_to_xbdev(struct drm_device* dev)
 {
-	struct pvdrm_device *pvdrm = NULL;
-	int ret = 0;
-
-	pvdrm = kzalloc(sizeof(struct pvdrm_device), GFP_KERNEL);
-	if (!pvdrm) {
-		return -ENOMEM;
-        }
-
-        /* Configure it. */
-	dev->dev_private = (void*)pvdrm;
-	pvdrm->dev = dev;
-
-	ret = pvdrm_init(pvdrm, dev, flags);
-	if (ret)
-		goto out;
-
-        printk(KERN_INFO "PVDRM: loaded.\n");
-out:
-	if (ret)
-		pvdrm_unload(dev);
-
-	return ret;
+        return dev->xbdev;
 }
 
-int pvdrm_unload(struct drm_device *dev)
+static inline struct drm_device* pvdrm_to_drm_device(struct pvdrm_device* pvdrm)
 {
-	struct pvdrm_device *pvdrm = NULL;
-	int ret = 0;
-
-        pvdrm = drm_device_to_pvdrm(dev);
-        if (pvdrm) {
-                pvdrm_slots_release(pvdrm);
-		kfree(pvdrm);
-                dev->dev_private = NULL;
-        }
-
-	return ret;
+        return pvdrm->dev;
 }
 
-int pvdrm_open(struct drm_device *dev, struct drm_file *file)
+static inline struct drm_device* xbdev_to_drm_device(struct xenbus_device* xbdev)
 {
-	return 0;
+        return dev_get_drvdata(&xbdev->dev);
 }
 
-void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
+static inline struct xenbus_device* pvdrm_to_xbdev(struct pvdrm_device* pvdrm)
 {
+        return drm_device_to_xbdev(pvdrm_to_drm_device(pvdrm));
 }
 
-void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
+static inline struct pvdrm_device* xbdev_to_pvdrm(struct xenbus_device* xbdev)
 {
+        return drm_device_to_pvdrm(xbdev_to_drm_device(xbdev));
 }
 
+#endif  /* PVDRM_CAST_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

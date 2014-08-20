@@ -34,20 +34,16 @@
 #include <xen/page.h>
 #include <xen/platform_pci.h>
 
+#include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_slot.h"
-
-static struct pvdrm_mapped* extract_mapped(struct pvdrm_slots* slots)
-{
-        return slots->mapped;
-}
 
 static bool is_used(struct pvdrm_slot* slot)
 {
         return slot->code != PVDRM_UNUSED;
 }
 
-int pvdrm_slot_init(struct pvdrm_device* pvdrm)
+int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 {
 	int i;
 	int ret;
@@ -68,7 +64,7 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	}
 	pvdrm->slots = slots;
 
-	xbdev = pvdrm->dev->xbdev;
+	xbdev = pvdrm_to_xbdev(pvdrm);
 
         sema = &slots->sema;
 	sema_init(sema, PVDRM_SLOT_NR);
@@ -97,7 +93,7 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	}
 	printk(KERN_INFO "PVDRM: Initialising pvdrm counter reference %u.\n", slots->ref);
 
-        mapped = extract_mapped(slots);
+        mapped = slots->mapped;
 
 	/* Init counter. */
         atomic_set(&mapped->count, 0);
@@ -117,6 +113,17 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	return 0;
 }
 
+int pvdrm_slots_release(struct pvdrm_device* pvdrm)
+{
+        struct pvdrm_slots* slots;
+
+        slots = pvdrm->slots;
+        if (slots) {
+                kfree(slots);
+        }
+        return 0;
+}
+
 struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 {
 	int i;
@@ -126,7 +133,7 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 	unsigned long flags;
 
 	slots = pvdrm->slots;
-        mapped = extract_mapped(slots);
+        mapped = slots->mapped;
 
 	down(&slots->sema);
 	spin_lock_irqsave(&slots->lock, flags);
@@ -157,7 +164,7 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	struct pvdrm_mapped* mapped;
 
 	slots = pvdrm->slots;
-        mapped = extract_mapped(slots);
+        mapped = slots->mapped;
 
 	spin_lock_irqsave(&slots->lock, flags);
 
@@ -176,7 +183,7 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	struct pvdrm_mapped* mapped;
 
 	slots = pvdrm->slots;
-        mapped = extract_mapped(slots);
+        mapped = slots->mapped;
 
 	BUG_ON(!is_used(slot));
 

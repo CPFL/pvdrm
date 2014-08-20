@@ -121,7 +121,9 @@ struct pvdrm_slots {
 
 struct pvdrm_device;
 
-int pvdrm_slot_init(struct pvdrm_device* pvdrm);
+int pvdrm_slots_init(struct pvdrm_device* pvdrm);
+int pvdrm_slots_release(struct pvdrm_device* pvdrm);
+
 struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);

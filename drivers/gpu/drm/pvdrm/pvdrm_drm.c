@@ -41,8 +41,8 @@
 
 #include "drmP.h"
 #include "drm.h"
-#include "drm_crtc_helper.h"
 
+#include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_irq.h"
@@ -127,7 +127,6 @@ static void pvdrm_remove(struct xenbus_device *xbdev)
 
 static int pvdrm_connect(struct xenbus_device *xbdev)
 {
-        struct drm_device* dev;
         struct pvdrm_device* pvdrm;
         int ret;
 
@@ -135,10 +134,9 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
 	printk(KERN_INFO "PVDRM CONNECTED.\n");
 
-        dev = dev_get_drvdata(&xbdev->dev);
-        pvdrm = dev->dev_private;
+        pvdrm = xbdev_to_pvdrm(xbdev);
 
-        pvdrm_slot_init(pvdrm);
+        pvdrm_slots_init(pvdrm);
 
 	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 

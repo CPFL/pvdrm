@@ -34,6 +34,7 @@
 /* Include nouveau's abi16 header directly. */
 #include "../nouveau/nouveau_abi16.h"
 
+#include "pvdrm_cast.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
@@ -42,7 +43,7 @@ int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size
 {
 	struct pvdrm_device* pvdrm;
 	int ret;
-	pvdrm = dev->dev_private;
+	pvdrm = drm_device_to_pvdrm(dev);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		slot->code = (code);

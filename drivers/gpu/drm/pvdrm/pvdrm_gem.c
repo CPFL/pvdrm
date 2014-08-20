@@ -27,6 +27,7 @@
 #include "drm_crtc_helper.h"
 
 #include "pvdrm.h"
+#include "pvdrm_cast.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
@@ -37,7 +38,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 #if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
 	struct drm_device *dev = obj->base.dev;
-	struct pvdrm_device* pvdrm = dev->dev_private;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	pgoff_t page_offset;
 	unsigned long pfn;
 	bool write = !!(vmf->flags & FAULT_FLAG_WRITE);
