@@ -42,10 +42,18 @@ static void pvdrm_ttm_mem_global_release(struct drm_global_reference* ref)
 int pvdrm_ttm_global_init(struct pvdrm_device* pvdrm)
 {
 	struct drm_global_reference* global_ref;
+	struct pvdrm_ttm* ttm;
 	int ret = 0;
 
+
+	ttm = kzalloc(sizeof(struct pvdrm_ttm), GFP_KERNEL);
+	if (!ttm) {
+		return -ENOMEM;
+	}
+	pvdrm->ttm = ttm;
+
 	// init mem_global_ref
-	global_ref = &pvdrm->ttm.mem_global_ref;
+	global_ref = &ttm->mem_global_ref;
 	global_ref->global_type = DRM_GLOBAL_TTM_MEM;
 	global_ref->size = sizeof(struct ttm_mem_global);
 	global_ref->init = &pvdrm_ttm_mem_global_init;
@@ -57,8 +65,8 @@ int pvdrm_ttm_global_init(struct pvdrm_device* pvdrm)
 	}
 
 	// init bo_global_ref
-	pvdrm->ttm.bo_global_ref.mem_glob = pvdrm->ttm.mem_global_ref.object;
-	global_ref = &pvdrm->ttm.bo_global_ref.ref;
+	ttm->bo_global_ref.mem_glob = ttm->mem_global_ref.object;
+	global_ref = &ttm->bo_global_ref.ref;
 	global_ref->global_type = DRM_GLOBAL_TTM_BO;
 	global_ref->size = sizeof(struct ttm_bo_global);
 	global_ref->init = &ttm_bo_global_init;
@@ -74,13 +82,15 @@ int pvdrm_ttm_global_init(struct pvdrm_device* pvdrm)
 
 void pvdrm_ttm_global_release(struct pvdrm_device* pvdrm)
 {
-	if (pvdrm->ttm.mem_global_ref.release == NULL) {
+	if (pvdrm->ttm->mem_global_ref.release == NULL) {
 		return;
 	}
 
-	drm_global_item_unref(&pvdrm->ttm.bo_global_ref.ref);
-	drm_global_item_unref(&pvdrm->ttm.mem_global_ref);
-	pvdrm->ttm.mem_global_ref.release = NULL;
+	drm_global_item_unref(&pvdrm->ttm->bo_global_ref.ref);
+	drm_global_item_unref(&pvdrm->ttm->mem_global_ref);
+	pvdrm->ttm->mem_global_ref.release = NULL;
+	kfree(pvdrm->ttm);
+	pvdrm->ttm = NULL;
 }
 
 int
@@ -94,7 +104,7 @@ pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 		return drm_mmap(filp, vma);
 	}
 
-	return ttm_bo_mmap(filp, vma, &pvdrm->ttm.bdev);
+	return ttm_bo_mmap(filp, vma, &pvdrm->ttm->bdev);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

@@ -61,7 +61,13 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 
         printk(KERN_INFO "PVDRM: Initializing pvdrm slots.\n");
 	ret = 0;
-	slots = &pvdrm->slots;
+
+	slots = kzalloc(sizeof(struct pvdrm_slots), GFP_KERNEL);
+	if (!slots) {
+		return -ENOMEM;
+	}
+	pvdrm->slots = slots;
+
 	xbdev = pvdrm->dev->xbdev;
 
         sema = &slots->sema;
@@ -119,7 +125,7 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 	struct pvdrm_mapped* mapped;
 	unsigned long flags;
 
-	slots = &pvdrm->slots;
+	slots = pvdrm->slots;
         mapped = extract_mapped(slots);
 
 	down(&slots->sema);
@@ -150,7 +156,7 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	unsigned long flags;
 	struct pvdrm_mapped* mapped;
 
-	slots = &pvdrm->slots;
+	slots = pvdrm->slots;
         mapped = extract_mapped(slots);
 
 	spin_lock_irqsave(&slots->lock, flags);
@@ -169,7 +175,7 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	int ret;
 	struct pvdrm_mapped* mapped;
 
-	slots = &pvdrm->slots;
+	slots = pvdrm->slots;
         mapped = extract_mapped(slots);
 
 	BUG_ON(!is_used(slot));

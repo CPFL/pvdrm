@@ -37,7 +37,8 @@ int pvdrm_load(struct drm_device *dev, unsigned long flags)
 	struct pvdrm_device *pvdrm = NULL;
 	int ret = 0;
 
-	if (!(pvdrm = kzalloc(sizeof(pvdrm), GFP_KERNEL)))
+	pvdrm = kzalloc(sizeof(struct pvdrm_device), GFP_KERNEL);
+	if (!pvdrm)
 		return -ENOMEM;
 	dev->dev_private = (void *)pvdrm;
 	pvdrm->dev = dev;

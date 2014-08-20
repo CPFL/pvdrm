@@ -93,7 +93,7 @@ static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *de
 {
 	struct drm_pvdrm_gem_object *obj;
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc(sizeof(struct drm_pvdrm_gem_object), GFP_KERNEL);
 	if (!obj) {
 		goto free;
 	}
