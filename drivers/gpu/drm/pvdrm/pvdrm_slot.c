@@ -39,7 +39,7 @@
 
 static struct pvdrm_mapped* extract_mapped(struct pvdrm_slots* slots)
 {
-        return slots->ref.addr;
+        return slots->mapped;
 }
 
 static bool is_used(struct pvdrm_slot* slot)
@@ -52,16 +52,17 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
 	int i;
 	int ret;
 	struct pvdrm_slots* slots;
+	struct xenbus_device* xbdev;
         struct pvdrm_mapped* mapped;
         spinlock_t* lock;
 	struct semaphore* sema;
-	grant_ref_t gref_head;
 
         BUILD_BUG_ON(sizeof(struct pvdrm_mapped) <= PAGE_SIZE);
 
         printk(KERN_INFO "PVDRM: Initializing pvdrm slots.\n");
 	ret = 0;
 	slots = &pvdrm->slots;
+	xbdev = pvdrm->dev->xbdev;
 
         sema = &slots->sema;
 	sema_init(sema, PVDRM_SLOT_NR);
@@ -70,31 +71,25 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
         spin_lock_init(lock);
 
 	/* Allocate slot and counter ref. */
-	if (gnttab_alloc_grant_references(1, &gref_head)) {
-		BUG();
-		return -ENOMEM;
+	{
+		const uintptr_t vaddr = get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+		if (!vaddr) {
+			ret = -ENOMEM;
+			xenbus_dev_fatal(xbdev, ret, "allocating ring page");
+			return ret;
+		}
+
+		ret = xenbus_grant_ring(xbdev, virt_to_mfn(vaddr));
+		if (ret < 0) {
+			xenbus_dev_fatal(xbdev, ret, "granting ring page");
+			free_page(vaddr);
+			return ret;
+		}
+
+		slots->ref = ret;
+		slots->mapped = (void*)vaddr;
 	}
-
-        {
-                struct page* page;
-                uintptr_t pfn, mfn;
-                grant_ref_t ref = gnttab_claim_grant_reference(&gref_head);
-
-                printk(KERN_INFO "PVDRM: Initialising pvdrm counter reference %u.\n", ref);
-
-                if (!(page = alloc_page(GFP_HIGHUSER))) {
-                        BUG();
-                        return -ENOMEM;
-                }
-
-                pfn = page_to_pfn(page);
-                mfn = pfn_to_mfn(pfn);
-                gnttab_grant_foreign_access_ref(ref, /* DOM0 */ 0, mfn, 0);
-
-                slots->ref.addr = kmap(page);
-                slots->ref.page = page;
-                slots->ref.ref = ref;
-        }
+	printk(KERN_INFO "PVDRM: Initialising pvdrm counter reference %u.\n", slots->ref);
 
         mapped = extract_mapped(slots);
 
@@ -110,8 +105,6 @@ int pvdrm_slot_init(struct pvdrm_device* pvdrm)
                 slot->code = PVDRM_UNUSED;
                 mapped->ring[i] = (uint32_t)-1;
 	}
-
-	gnttab_free_grant_references(gref_head);
 
         printk(KERN_INFO "PVDRM: Initialized pvdrm slots.\n");
 

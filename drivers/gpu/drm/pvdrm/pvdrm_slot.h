@@ -112,16 +112,11 @@ struct pvdrm_mapped {
 	atomic_t count;
 };
 
-struct pvdrm_gref {
-	void* addr;
-	struct page* page;
-	grant_ref_t ref;
-};
-
 struct pvdrm_slots {
 	struct semaphore sema;
 	spinlock_t lock;
-        struct pvdrm_gref ref;
+	struct pvdrm_mapped* mapped;
+	grant_ref_t ref;
 };
 
 struct pvdrm_device;

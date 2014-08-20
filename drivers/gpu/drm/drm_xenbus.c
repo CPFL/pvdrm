@@ -85,7 +85,7 @@ int drm_get_xenbus_dev(struct xenbus_device *xbdev, struct drm_driver *driver)
 
 	dev->xbdev = xbdev;
 	dev->dev = &xbdev->dev;
-    dev_set_drvdata(&xbdev->dev, dev);
+	dev_set_drvdata(&xbdev->dev, dev);
 
 	mutex_lock(&drm_global_mutex);
 

@@ -151,7 +151,7 @@ again:
                         return ret;
                 }
 
-                ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.ref.ref);
+                ret = xenbus_printf(xbt, xbdev->nodename, "counter-ref", "%u", pvdrm->slots.ref);
                 if (ret) {
                         xenbus_dev_fatal(xbdev, ret, "writing counter-ref");
                         return ret;

@@ -41,7 +41,6 @@
 
 struct pvdrm_device {
 	struct drm_device* dev;
-	int dom0;
 	struct pvdrm_slots slots;
 	struct pvdrm_ttm ttm;
 };

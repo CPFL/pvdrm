@@ -99,15 +99,22 @@ static int thread_main(void *arg)
 	printk(KERN_INFO "PVDRM backend thread connected.\n");
 
 	{
-		void* addr;
-		ret = xenbus_scanf(XBT_NIL, info->xbdev->nodename, "counter-ref", "%u", &info->ref);
-		if (ret) {
+		void* addr = NULL;
+
+		ret = xenbus_scanf(XBT_NIL, info->xbdev->otherend, "counter-ref", "%u", &info->ref);
+		if (ret < 0) {
                         xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
                         return ret;
                 }
-		xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
+		printk(KERN_INFO "PVDRM: mapping %u.\n", info->ref);
+
+		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
+		if (ret) {
+                        xenbus_dev_fatal(info->xbdev, ret, "mapping counter-ref");
+                        return ret;
+		}
 		info->mapped = addr;
-		printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[42].__id);
+		// printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[1].__id);
 	}
 
 #if 0
@@ -184,6 +191,8 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		break;
 
 	case XenbusStateInitialised:
+		break;
+
 	case XenbusStateConnected:
 		if (xbdev->state == XenbusStateConnected) {
 			break;
