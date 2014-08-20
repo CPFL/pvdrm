@@ -114,7 +114,7 @@ static int thread_main(void *arg)
                         return ret;
 		}
 		info->mapped = addr;
-		// printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[1].__id);
+		printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[1].__id);
 	}
 
 #if 0
