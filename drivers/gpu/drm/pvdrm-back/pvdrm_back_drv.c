@@ -22,10 +22,15 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <linux/atomic.h>
 #include <linux/console.h>
 #include <linux/device.h>
-#include <linux/module.h>
+#include <linux/fs.h>
 #include <linux/kthread.h>
+#include <linux/ktime.h>
+#include <linux/module.h>
+#include <linux/sched.h>
+#include <linux/time.h>
 #include <linux/wait.h>
 
 #include <xen/xen.h>
@@ -52,14 +57,14 @@ static pvdrm_back_core_t* pvdrm_back_core;
 
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
-	wait_queue_head_t cond;
+        struct task_struct* thread;
+        struct file* filp;
 
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
-	uint32_t cursor;
 };
 
-static uint64_t pvdrm_back_device_count(struct pvdrm_back_device* info)
+static uint64_t pvdrm_back_count(struct pvdrm_back_device* info)
 {
 	return atomic_read(&info->mapped->count);
 }
@@ -68,17 +73,30 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 {
 	uint32_t id;
 	atomic_dec(&info->mapped->count);
-	id = info->mapped->ring[info->cursor++ % PVDRM_SLOT_NR];
+	id = info->mapped->ring[info->mapped->get++ % PVDRM_SLOT_NR];
 	return &info->mapped->slot[id];
 }
 
-static int process_slot(struct pvdrm_slot* slot)
+static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int ret;
+        struct drm_file* file_priv = NULL;
+        struct drm_device* dev = NULL;
+
 	ret = 0;
+        file_priv = info->filp->private_data;
+        dev = file_priv->minor->dev;
+
 	/* Processing slot. */
+        switch (slot->code) {
+        case PVDRM_IOCTL_NOUVEAU_GETPARAM:
+                /* TODO:(Yusuke Suzuki) Instead of this, register ioctl from each drivers or call drm_ioctl. */
+                slot->ret = nouveau_abi16_ioctl_getparam(dev, pvdrm_slot_payload(slot), file_priv);
+                break;
+        }
 
 	slot->ret = ret;
+
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, 42);
 	return ret;
@@ -117,22 +135,34 @@ static int thread_main(void *arg)
 		printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[1].__id);
 	}
 
-#if 0
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(info->cond, pvdrm_back_device_count(info) || kthread_should_stop());
+        /* Open DRM file. */
+        {
+                mm_segment_t fs;
+                fs = get_fs();
+                set_fs(get_ds());
+                info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
+                set_fs(fs);
+        }
+
+	while (true) {
+                while (!kthread_should_stop() && !pvdrm_back_count(info)) {
+                        /* Sleep. */
+                        ktime_t time;
+                        __set_current_state(TASK_INTERRUPTIBLE);
+                        time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+                        schedule_hrtimeout(&time, HRTIMER_MODE_REL);
+                }
+
 		if (kthread_should_stop()) {
 			break;
 		}
 
-		if (pvdrm_back_device_count(info)) {
+		if (pvdrm_back_count(info)) {
 			struct pvdrm_slot* slot = claim_slot(info);
-			ret = process_slot(slot);
-			if (ret) {
-				return ret;
-			}
+			process_slot(info, slot);
 		}
 	}
-#endif
+
 	return 0;
 }
 
@@ -148,7 +178,6 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 		return -ENOMEM;
 	}
 	info->xbdev = xbdev;
-	init_waitqueue_head(&info->cond);
 	dev_set_drvdata(&xbdev->dev, info);
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
@@ -200,7 +229,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 
 		/* OK, connect it. */
 		/* TODO: Implement it */
-		kthread_run(thread_main, (void*)info, "pvdrm-back");
+		info->thread = kthread_run(thread_main, (void*)info, "pvdrm-back");
 		break;
 
 	case XenbusStateClosing:
@@ -213,6 +242,10 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		if (xenbus_dev_is_online(xbdev)) {
 			break;
 		}
+                if (info->thread) {
+                        kthread_stop(info->thread);
+                        info->thread = NULL;
+                }
 
 		/* fall through if not online */
 	case XenbusStateUnknown:

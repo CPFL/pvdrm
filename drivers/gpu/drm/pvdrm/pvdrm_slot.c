@@ -97,6 +97,8 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 
 	/* Init counter. */
         atomic_set(&mapped->count, 0);
+        mapped->get = 0;
+        mapped->put = 0;
 
         printk(KERN_INFO "PVDRM: Initialized pvdrm counter.\n");
 
@@ -107,6 +109,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
                 slot->code = PVDRM_UNUSED;
                 mapped->ring[i] = (uint32_t)-1;
 	}
+        wmb();
 
         printk(KERN_INFO "PVDRM: Initialized pvdrm slots.\n");
 
@@ -188,6 +191,7 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	BUG_ON(!is_used(slot));
 
 	/* Request slot, increment counter. */
+        mapped->ring[mapped->put++ % PVDRM_SLOT_NR] = slot->__id;
 	wmb();
 	atomic_inc(&mapped->count);
 

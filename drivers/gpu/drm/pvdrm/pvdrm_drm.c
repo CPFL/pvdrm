@@ -69,6 +69,21 @@ static const struct file_operations pvdrm_fops = {
 	.llseek = noop_llseek,
 };
 
+struct drm_ioctl_desc pvdrm_nouveau_ioctls[] = {
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GETPARAM, pvdrm_nouveau_abi16_ioctl_getparam, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_SETPARAM, pvdrm_nouveau_abi16_ioctl_setparam, DRM_UNLOCKED|DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_CHANNEL_ALLOC, pvdrm_nouveau_abi16_ioctl_channel_alloc, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_CHANNEL_FREE, pvdrm_nouveau_abi16_ioctl_channel_free, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GROBJ_ALLOC, pvdrm_nouveau_abi16_ioctl_grobj_alloc, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_NOTIFIEROBJ_ALLOC, pvdrm_nouveau_abi16_ioctl_notifierobj_alloc, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GPUOBJ_FREE, pvdrm_nouveau_abi16_ioctl_gpuobj_free, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_NEW, pvdrm_nouveau_gem_ioctl_new, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_PUSHBUF, pvdrm_nouveau_gem_ioctl_pushbuf, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_PREP, pvdrm_nouveau_gem_ioctl_cpu_prep, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_CPU_FINI, pvdrm_nouveau_gem_ioctl_cpu_fini, DRM_UNLOCKED|DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(NOUVEAU_GEM_INFO, pvdrm_nouveau_gem_ioctl_info, DRM_UNLOCKED|DRM_AUTH),
+};
+
 static struct drm_driver pvdrm_drm_driver = {
         .driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM,  /* DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM , */
 	.load       = pvdrm_load,
@@ -106,7 +121,10 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 
 	printk(KERN_INFO "Proving PVDRM frontend driver.\n");
 
+        /* Setup ioctls. */
 	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
+	pvdrm_drm_driver.num_ioctls = DRM_ARRAY_SIZE(pvdrm_nouveau_ioctls);
+
 	ret = drm_xenbus_init(&pvdrm_drm_driver, xbdev);
 	if (ret) {
 		BUG();

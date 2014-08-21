@@ -110,6 +110,8 @@ struct pvdrm_mapped {
         struct pvdrm_slot slot[PVDRM_SLOT_NR];
 	uint32_t ring[PVDRM_SLOT_NR];
 	atomic_t count;
+        uint8_t put;
+        uint8_t get;
 };
 
 struct pvdrm_slots {

@@ -36,7 +36,7 @@ struct pvdrm_fence {
 
 static inline void pvdrm_fence_emit(struct pvdrm_fence* fence, uint32_t seq)
 {
-	mb();
+	wmb();
 	atomic_set(&fence->seq, seq);
 }
 

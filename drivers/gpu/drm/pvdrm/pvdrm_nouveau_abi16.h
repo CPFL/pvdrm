@@ -26,9 +26,20 @@
 
 #include "drmP.h"
 
-extern struct drm_ioctl_desc pvdrm_nouveau_ioctls[];
-
 int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size);
+
+int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_notifierobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_abi16_ioctl_gpuobj_free(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct drm_file *file_priv);
+int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file_priv);
 
 #endif  /* PVDRM_NOUVEAU_ABI16_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
