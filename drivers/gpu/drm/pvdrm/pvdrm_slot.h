@@ -31,7 +31,7 @@
 #include <drm/nouveau_drm.h>
 
 #include <xen/grant_table.h>
-#define PVDRM_SLOT_NR 64
+#define PVDRM_SLOT_NR 32
 
 #include "drmP.h"
 #include "../nouveau/nouveau_abi16.h"
@@ -39,9 +39,9 @@
 #include "pvdrm_fence.h"
 
 enum {
-        /* used for unused flag. */
-        PVDRM_UNUSED = -1,
-        PVDRM_HELD = 0,
+	/* used for unused flag. */
+	PVDRM_UNUSED = -1,
+	PVDRM_HELD = 0,
 
 	/* ioctls. */
 	PVDRM_IOCTL_NOUVEAU_GETPARAM = 1,
@@ -77,7 +77,6 @@ struct drm_pvdrm_gem_open {
 
 struct pvdrm_slot {
 	/* Headers */
-	uint32_t __id;
 	struct pvdrm_fence __fence;
 
 	int32_t code;
@@ -107,24 +106,28 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 }
 
 struct pvdrm_mapped {
-        struct pvdrm_slot slot[PVDRM_SLOT_NR];
-	uint32_t ring[PVDRM_SLOT_NR];
+	struct pvdrm_slot slot[PVDRM_SLOT_NR];  /* Should be here. */
+	uint8_t ring[PVDRM_SLOT_NR];
+	uint8_t put;
+	uint8_t get;
 	atomic_t count;
-        uint8_t put;
-        uint8_t get;
 };
 
 struct pvdrm_slots {
-	struct semaphore sema;
-	spinlock_t lock;
 	struct pvdrm_mapped* mapped;
 	grant_ref_t ref;
+	struct semaphore sema;
+	spinlock_t lock;
 };
 
 struct pvdrm_device;
 
 int pvdrm_slots_init(struct pvdrm_device* pvdrm);
 int pvdrm_slots_release(struct pvdrm_device* pvdrm);
+static inline uint8_t pvdrm_slot_id(struct pvdrm_mapped* mapped, struct pvdrm_slot* slot)
+{
+	return (((uintptr_t)slot) - ((uintptr_t)mapped)) / sizeof(struct pvdrm_slot);
+}
 
 struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);

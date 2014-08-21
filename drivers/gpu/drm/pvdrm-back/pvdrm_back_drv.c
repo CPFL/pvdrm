@@ -59,8 +59,8 @@ static pvdrm_back_core_t* pvdrm_back_core;
 
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
-        struct task_struct* thread;
-        struct file* filp;
+	struct task_struct* thread;
+	struct file* filp;
 
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
@@ -68,7 +68,8 @@ struct pvdrm_back_device {
 
 static uint64_t pvdrm_back_count(struct pvdrm_back_device* info)
 {
-	return atomic_read(&info->mapped->count);
+	return 0;
+	// return atomic_read(&info->mapped->count);
 }
 
 static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
@@ -88,18 +89,18 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	mm_segment_t fs;
 
 	ret = 0;
-        file_priv = info->filp->private_data;
-        dev = file_priv->minor->dev;
+	file_priv = info->filp->private_data;
+	dev = file_priv->minor->dev;
 
 	fs = get_fs();
 	set_fs(get_ds());
 	/* Processing slot. */
-        switch (slot->code) {
-        case PVDRM_IOCTL_NOUVEAU_GETPARAM:
-                /* TODO:(Yusuke Suzuki) Instead of this, register ioctl from each drivers or call drm_ioctl. */
-                ioctl_ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
-                break;
-        }
+	switch (slot->code) {
+	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
+		/* TODO:(Yusuke Suzuki) Instead of this, register ioctl from each drivers or call drm_ioctl. */
+		ioctl_ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+	}
 	set_fs(fs);
 
 	slot->ret = ioctl_ret;
@@ -128,37 +129,39 @@ static int thread_main(void *arg)
 
 		ret = xenbus_scanf(XBT_NIL, info->xbdev->otherend, "counter-ref", "%u", &info->ref);
 		if (ret < 0) {
-                        xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
-                        return ret;
+			xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
+			return ret;
                 }
 		printk(KERN_INFO "PVDRM: mapping %u.\n", info->ref);
 
 		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
 		if (ret) {
-                        xenbus_dev_fatal(info->xbdev, ret, "mapping counter-ref");
-                        return ret;
+			xenbus_dev_fatal(info->xbdev, ret, "mapping counter-ref");
+			return ret;
 		}
 		info->mapped = addr;
-		printk(KERN_INFO "PVDRM: mapped slot[42].__id %d.\n", info->mapped->slot[1].__id);
+		printk(KERN_INFO "PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[31]));
 	}
 
         /* Open DRM file. */
-        {
-                mm_segment_t fs;
-                fs = get_fs();
-                set_fs(get_ds());
-                info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
-                set_fs(fs);
+	{
+		// mm_segment_t fs;
+		// fs = get_fs();
+		// set_fs(get_ds());
+		info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
+		// set_fs(fs);
+		printk(KERN_INFO "PVDRM: Opened drm device.\n");
         }
 
+	printk(KERN_INFO "PVDRM: Start main loop.\n");
 	while (true) {
-                while (!kthread_should_stop() && !pvdrm_back_count(info)) {
-                        /* Sleep. */
-                        ktime_t time;
-                        __set_current_state(TASK_INTERRUPTIBLE);
-                        time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
-                        schedule_hrtimeout(&time, HRTIMER_MODE_REL);
-                }
+		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
+			/* Sleep. */
+			ktime_t time;
+			__set_current_state(TASK_INTERRUPTIBLE);
+			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
+		}
 
 		if (kthread_should_stop()) {
 			break;
@@ -249,10 +252,10 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		if (xenbus_dev_is_online(xbdev)) {
 			break;
 		}
-                if (info->thread) {
-                        kthread_stop(info->thread);
-                        info->thread = NULL;
-                }
+		if (info->thread) {
+			kthread_stop(info->thread);
+			info->thread = NULL;
+		}
 
 		/* fall through if not online */
 	case XenbusStateUnknown:

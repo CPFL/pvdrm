@@ -53,7 +53,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
         spinlock_t* lock;
 	struct semaphore* sema;
 
-        BUILD_BUG_ON(sizeof(struct pvdrm_mapped) <= PAGE_SIZE);
+        BUILD_BUG_ON(sizeof(struct pvdrm_mapped) > PAGE_SIZE);
 
         printk(KERN_INFO "PVDRM: Initializing pvdrm slots.\n");
 	ret = 0;
@@ -105,9 +105,8 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 	/* Init slots. */
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
                 struct pvdrm_slot* slot = &mapped->slot[i];
-                slot->__id = i;
                 slot->code = PVDRM_UNUSED;
-                mapped->ring[i] = (uint32_t)-1;
+                mapped->ring[i] = (uint8_t)-1;
 	}
         wmb();
 
@@ -191,7 +190,7 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	BUG_ON(!is_used(slot));
 
 	/* Request slot, increment counter. */
-        mapped->ring[mapped->put++ % PVDRM_SLOT_NR] = slot->__id;
+        mapped->ring[mapped->put++ % PVDRM_SLOT_NR] = pvdrm_slot_id(mapped, slot);
 	wmb();
 	atomic_inc(&mapped->count);
 
