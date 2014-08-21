@@ -172,6 +172,7 @@ static int thread_main(void *arg)
 			process_slot(info, slot);
 		}
 	}
+	printk(KERN_INFO "PVDRM: End main loop.\n");
 
 	return 0;
 }
