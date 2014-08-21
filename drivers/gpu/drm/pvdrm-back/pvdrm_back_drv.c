@@ -68,8 +68,7 @@ struct pvdrm_back_device {
 
 static uint64_t pvdrm_back_count(struct pvdrm_back_device* info)
 {
-	return 0;
-	// return atomic_read(&info->mapped->count);
+	return atomic_read(&info->mapped->count);
 }
 
 static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
