@@ -44,11 +44,10 @@ int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct dr
 		return ret;
 	}
 
-	obj = pvdrm_gem_alloc_object(dev, file, req_out->channel, /* FIXME */  1024);
+	obj = pvdrm_gem_alloc_object(dev, file, req_out->channel, /* FIXME */  PAGE_SIZE);
 	if (obj == NULL) {
 		return -ENOMEM;
 	}
-	/* FIXME: pushbuf adjustment. */
 
 	/* Adjust gem information for guest environment. */
 	req_out->channel = obj->handle;
