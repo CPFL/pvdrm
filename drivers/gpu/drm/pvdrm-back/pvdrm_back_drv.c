@@ -144,11 +144,13 @@ static int thread_main(void *arg)
 
         /* Open DRM file. */
 	{
-		// mm_segment_t fs;
-		// fs = get_fs();
-		// set_fs(get_ds());
+		mm_segment_t fs;
+		fs = get_fs();
+		set_fs(get_ds());
+		/* FIXME: Currently we use this path directly. */
 		info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
-		// set_fs(fs);
+		set_fs(fs);
+
 		printk(KERN_INFO "PVDRM: Opened drm device.\n");
         }
 
