@@ -96,7 +96,6 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	/* Processing slot. */
 	switch (slot->code) {
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
-		/* TODO:(Yusuke Suzuki) Instead of this, register ioctl from each drivers or call drm_ioctl. */
 		ioctl_ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 	}
@@ -239,8 +238,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 			break;
 		}
 
-		/* OK, connect it. */
-		/* TODO: Implement it */
+		/* OK, connected. */
 		info->thread = kthread_run(thread_main, (void*)info, "pvdrm-back");
 		break;
 
@@ -249,7 +247,6 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		break;
 
 	case XenbusStateClosed:
-		/* TODO: Implement it */
 		xenbus_switch_state(xbdev, XenbusStateClosed);
 		if (xenbus_dev_is_online(xbdev)) {
 			break;
