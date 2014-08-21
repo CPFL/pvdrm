@@ -46,6 +46,8 @@
 
 #include <asm/xen/hypervisor.h>
 
+#include "drmP.h"
+
 #include "../pvdrm/pvdrm_slot.h"
 
 typedef struct {
@@ -80,22 +82,27 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int ret;
+	int ioctl_ret = 0;
         struct drm_file* file_priv = NULL;
         struct drm_device* dev = NULL;
+	mm_segment_t fs;
 
 	ret = 0;
         file_priv = info->filp->private_data;
         dev = file_priv->minor->dev;
 
+	fs = get_fs();
+	set_fs(get_ds());
 	/* Processing slot. */
         switch (slot->code) {
         case PVDRM_IOCTL_NOUVEAU_GETPARAM:
                 /* TODO:(Yusuke Suzuki) Instead of this, register ioctl from each drivers or call drm_ioctl. */
-                slot->ret = nouveau_abi16_ioctl_getparam(dev, pvdrm_slot_payload(slot), file_priv);
+                ioctl_ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
                 break;
         }
+	set_fs(fs);
 
-	slot->ret = ret;
+	slot->ret = ioctl_ret;
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, 42);
