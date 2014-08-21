@@ -124,7 +124,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 				ret = -EINVAL;
 				break;
 			}
-			ret = drm_gem_handle_delete(info->filp, handle);
+			ret = drm_gem_handle_delete(file_priv, handle);
 		}
 		break;
 
