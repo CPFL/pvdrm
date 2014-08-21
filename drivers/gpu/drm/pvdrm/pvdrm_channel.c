@@ -21,25 +21,40 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_NOUVEAU_ABI16_H_
-#define PVDRM_NOUVEAU_ABI16_H_
 
 #include "drmP.h"
+#include "drm.h"
 
-int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size);
+/* Include nouveau's abi16 header directly. */
+#include "../nouveau/nouveau_abi16.h"
 
-int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_notifierobj_alloc(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_abi16_ioctl_gpuobj_free(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct drm_file *file);
-int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file);
+#include "pvdrm.h"
+#include "pvdrm_channel.h"
+#include "pvdrm_gem.h"
+#include "pvdrm_nouveau_abi16.h"
+#include "pvdrm_slot.h"
 
-#endif  /* PVDRM_NOUVEAU_ABI16_H_ */
+int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct drm_pvdrm_gem_object** result)
+{
+	struct drm_pvdrm_gem_object *obj;
+	int ret;
+
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, req_out, sizeof(struct drm_nouveau_channel_alloc));
+	if (ret) {
+		return ret;
+	}
+
+	obj = pvdrm_gem_alloc_object(dev, file, req_out->channel, /* FIXME */  1024);
+	if (obj == NULL) {
+		return -ENOMEM;
+	}
+	/* FIXME: pushbuf adjustment. */
+
+	/* Adjust gem information for guest environment. */
+	req_out->channel = obj->handle;
+
+	*result = obj;
+	return 0;
+}
+
 /* vim: set sw=8 ts=8 et tw=80 : */

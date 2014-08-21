@@ -35,6 +35,7 @@
 #include "../nouveau/nouveau_abi16.h"
 
 #include "pvdrm_cast.h"
+#include "pvdrm_channel.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
@@ -55,65 +56,108 @@ int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size
 	return ret;
 }
 
-int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GETPARAM, data, sizeof(struct drm_nouveau_getparam));
 }
 
-int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return -EINVAL;
 }
 
-int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, data, sizeof(struct drm_nouveau_channel_alloc));
+	struct drm_pvdrm_gem_object* result = NULL;
+	return pvdrm_channel_alloc(dev, file, data, &result);
 }
 
-int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, data, sizeof(struct drm_nouveau_channel_free));
 }
 
-int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GROBJ_ALLOC, data, sizeof(struct drm_nouveau_grobj_alloc));
 }
 
-int pvdrm_nouveau_abi16_ioctl_notifierobj_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_notifierobj_alloc(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_NOTIFIEROBJ_ALLOC, data, sizeof(struct drm_nouveau_notifierobj_alloc));
 }
 
-int pvdrm_nouveau_abi16_ioctl_gpuobj_free(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_abi16_ioctl_gpuobj_free(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GPUOBJ_FREE, data, sizeof(struct drm_nouveau_gpuobj_free));
 }
 
-int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object* result = NULL;
-	return pvdrm_gem_object_new(dev, file_priv, data, &result);
+	return pvdrm_gem_object_new(dev, file, data, &result);
 }
 
-int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, data, sizeof(struct drm_nouveau_gem_pushbuf));
 }
 
-int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, data, sizeof(struct drm_nouveau_gem_cpu_prep));
+	struct drm_nouveau_gem_cpu_prep* req = data;
+	uint32_t handle = req->handle;
+	struct drm_pvdrm_gem_object* obj;
+	int ret;
+
+	obj = pvdrm_gem_object_lookup(dev, file, handle);
+	if (!obj) {
+		return -EINVAL;
+	}
+	req->handle = obj->host;
+
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, data, sizeof(struct drm_nouveau_gem_cpu_prep));
+
+	req->handle = obj->handle;
+	return ret;
 }
 
-int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, data, sizeof(struct drm_nouveau_gem_cpu_fini));
+	struct drm_nouveau_gem_cpu_fini* req = data;
+	uint32_t handle = req->handle;
+	struct drm_pvdrm_gem_object* obj;
+	int ret;
+
+	obj = pvdrm_gem_object_lookup(dev, file, handle);
+	if (!obj) {
+		return -EINVAL;
+	}
+	req->handle = obj->host;
+
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, data, sizeof(struct drm_nouveau_gem_cpu_fini));
+
+	req->handle = obj->handle;
+	return ret;
 }
 
-int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file_priv)
+int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
+	struct drm_nouveau_gem_info* req = data;
+	uint32_t handle = req->handle;
+	struct drm_pvdrm_gem_object* obj;
+	int ret;
+
+	obj = pvdrm_gem_object_lookup(dev, file, handle);
+	if (!obj) {
+		return -EINVAL;
+	}
+	req->handle = obj->host;
+
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
+
+	req->handle = obj->handle;
+	return ret;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

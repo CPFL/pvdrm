@@ -61,7 +61,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	struct drm_device *dev = obj->base.dev;
 	struct drm_pvdrm_gem_free req = {
-		.handle = obj->host.handle,
+		.handle = obj->host,
 	};
 	int ret = 0;
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -74,7 +74,7 @@ int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	struct drm_device *dev = obj->base.dev;
 	struct drm_pvdrm_gem_close req = {
-		.handle = obj->host.handle,
+		.handle = obj->host,
 	};
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_OPEN, &req, sizeof(struct drm_pvdrm_gem_open));
 }
@@ -84,14 +84,15 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	struct drm_device *dev = obj->base.dev;
 	struct drm_pvdrm_gem_close req = {
-		.handle = obj->host.handle,
+		.handle = obj->host,
 	};
 	int ret = 0;
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_pvdrm_gem_close));
 }
 
-static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, const struct drm_nouveau_gem_info* host)
+struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file *file, uint32_t host, uint32_t size)
 {
+	int ret;
 	struct drm_pvdrm_gem_object *obj;
 
 	obj = kzalloc(sizeof(struct drm_pvdrm_gem_object), GFP_KERNEL);
@@ -99,7 +100,7 @@ static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *de
 		goto free;
 	}
 
-	if (drm_gem_object_init(dev, &obj->base, host->size) != 0) {
+	if (drm_gem_object_init(dev, &obj->base, size) != 0) {
 		goto free;
 	}
 
@@ -110,7 +111,17 @@ static struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *de
 
 	/* Store host information. */
 	obj->handle = (uint32_t)-1;
-	memcpy(&obj->host, host, sizeof(obj->host));
+	obj->host = host;
+
+	/* FIXME: These code are moved from pvdrm_gem_object_new. */
+	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
+	if (ret) {
+		pvdrm_gem_object_free(&obj->base);
+		return NULL;
+	}
+
+	/* Drop reference from allocate - handle holds it now */
+	drm_gem_object_unreference(&obj->base);
 
 	return obj;
 fput:
@@ -131,25 +142,21 @@ int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct d
 		return ret;
 	}
 
-	obj = pvdrm_gem_alloc_object(dev, &req_out->info);
+	obj = pvdrm_gem_alloc_object(dev, file, req_out->info.handle, req_out->info.size);
 	if (obj == NULL) {
 		return -ENOMEM;
 	}
-
-	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
-	if (ret) {
-		pvdrm_gem_object_free(&obj->base);
-		return ret;
-	}
-
-	/* Drop reference from allocate - handle holds it now */
-	drm_gem_object_unreference(&obj->base);
 
 	/* Adjust gem information for guest environment. */
 	req_out->info.handle = obj->handle;
 
 	*result = obj;
 	return 0;
+}
+
+struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle)
+{
+	return (struct drm_pvdrm_gem_object*)drm_gem_object_lookup(dev, file, handle);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

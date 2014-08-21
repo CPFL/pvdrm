@@ -82,7 +82,6 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int ret;
-	int ioctl_ret = 0;
         struct drm_file* file_priv = NULL;
         struct drm_device* dev = NULL;
 	mm_segment_t fs;
@@ -93,15 +92,49 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	fs = get_fs();
 	set_fs(get_ds());
+	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
+
 	/* Processing slot. */
+	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
-		ioctl_ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_FREE, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_GEM_INFO:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_INFO, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_GEM_NEW:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_GEM_NOUVEAU_GEM_CLOSE: {
+			uint32_t handle = slot->gem_close.handle;
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, handle);
+			if (!obj) {
+				ret = -EINVAL;
+				break;
+			}
+			ret = drm_gem_handle_delete(info->filp, handle);
+		}
+		break;
+
+	default:
+		printk(KERN_INFO "PVDRM: unhandled slot %d\n", slot->code);
 		break;
 	}
 	set_fs(fs);
 
-	slot->ret = ioctl_ret;
+	slot->ret = ret;
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, 42);
