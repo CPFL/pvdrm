@@ -71,14 +71,6 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
-#if 0
-	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	struct drm_device *dev = obj->base.dev;
-	struct drm_pvdrm_gem_close req = {
-		.handle = obj->host,
-	};
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_OPEN, &req, sizeof(struct drm_pvdrm_gem_open));
-#endif
 	return 0;
 }
 
