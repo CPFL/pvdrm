@@ -189,6 +189,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 
 	if (!transfer_is_needed) {
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
+		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 		slot->transfer.ref = -ENOMEM;
