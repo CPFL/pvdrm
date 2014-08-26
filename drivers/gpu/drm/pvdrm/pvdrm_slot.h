@@ -132,6 +132,7 @@ static inline uint8_t pvdrm_slot_id(struct pvdrm_mapped* mapped, struct pvdrm_sl
 struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
+void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_t seq);
 
 #endif  /* PVDRM_SLOT_H_ */

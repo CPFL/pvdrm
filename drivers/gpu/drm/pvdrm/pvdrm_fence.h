@@ -35,7 +35,6 @@
 struct pvdrm_device;
 
 enum {
-	PVDRM_FENCE_INIT = 0,
 	PVDRM_FENCE_DONE = UINT32_MAX
 };
 
@@ -47,11 +46,6 @@ static inline void pvdrm_fence_emit(struct pvdrm_fence* fence, uint32_t seq)
 {
 	wmb();
 	atomic_set(&fence->seq, seq);
-}
-
-static inline void pvdrm_fence_init(struct pvdrm_fence* fence)
-{
-	pvdrm_fence_emit(fence, PVDRM_FENCE_INIT);
 }
 
 static inline uint32_t pvdrm_fence_read(struct pvdrm_fence* fence)

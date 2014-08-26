@@ -205,7 +205,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	slot->ret = ret;
 
 	/* Emit fence. */
-	pvdrm_fence_emit(&slot->__fence, 42);
+	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
 	return ret;
 }
 
