@@ -166,6 +166,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
+		printk(KERN_INFO "PVDRM: allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
