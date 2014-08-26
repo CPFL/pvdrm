@@ -36,6 +36,7 @@
 
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
+#include "pvdrm_limits.h"
 #include "pvdrm_slot.h"
 
 static bool is_used(struct pvdrm_slot* slot)
@@ -97,8 +98,8 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 
 	/* Init counter. */
         atomic_set(&mapped->count, 0);
-        mapped->get = 0;
-        mapped->put = 0;
+        atomic_set(&mapped->get, UINT32_MAX);
+        atomic_set(&mapped->put, UINT32_MAX);
 
         printk(KERN_INFO "PVDRM: Initialized pvdrm counter.\n");
 
@@ -177,11 +178,21 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	up(&slots->sema);
 }
 
+int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_t seq)
+{
+	int ret;
+	ret = pvdrm_fence_wait(&slot->__fence, PVDRM_FENCE_DONE, false);
+	if (ret) {
+		return ret;
+	}
+	return slot->ret;
+}
+
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 {
 	/* TODO: Implement it, emitting fence here. */
 	struct pvdrm_slots* slots;
-	int ret;
+	uint32_t pos;
 	struct pvdrm_mapped* mapped;
 
 	slots = pvdrm->slots;
@@ -190,16 +201,12 @@ int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	BUG_ON(!is_used(slot));
 
 	/* Request slot, increment counter. */
-        mapped->ring[mapped->put++ % PVDRM_SLOT_NR] = pvdrm_slot_id(mapped, slot);
+	pos = ((uint32_t)atomic_add_return(1, &mapped->put)) % PVDRM_SLOT_NR;
+        mapped->ring[pos] = pvdrm_slot_id(mapped, slot);
 	wmb();
 	atomic_inc(&mapped->count);
 
-	/* Wait. */
-	ret = pvdrm_fence_wait(&slot->__fence, false);
-	if (ret) {
-		return ret;
-	}
-	return slot->ret;
+	return pvdrm_slot_wait(pvdrm, slot, PVDRM_FENCE_DONE);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

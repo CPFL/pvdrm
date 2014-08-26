@@ -78,11 +78,11 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	struct drm_device *dev = obj->base.dev;
-	struct drm_pvdrm_gem_close req = {
+	struct drm_gem_close req = {
 		.handle = obj->host,
 	};
 	int ret = 0;
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_pvdrm_gem_close));
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file *file, uint32_t host, uint32_t size)

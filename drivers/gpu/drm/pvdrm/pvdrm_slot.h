@@ -67,10 +67,6 @@ struct drm_pvdrm_gem_free {
 	uint32_t handle;
 };
 
-struct drm_pvdrm_gem_close {
-	uint32_t handle;
-};
-
 struct drm_pvdrm_gem_open {
 	uint32_t handle;
 };
@@ -100,7 +96,7 @@ struct pvdrm_slot {
 
 		/* gem operations. */
 		struct drm_pvdrm_gem_free gem_free;
-		struct drm_pvdrm_gem_close gem_close;
+		struct drm_gem_close gem_close;
 		struct drm_pvdrm_gem_open gem_open;
 	};
 };
@@ -112,8 +108,8 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 struct pvdrm_mapped {
 	struct pvdrm_slot slot[PVDRM_SLOT_NR];  /* Should be here. */
 	uint8_t ring[PVDRM_SLOT_NR];
-	uint8_t put;
-	uint8_t get;
+	atomic_t put;
+	atomic_t get;
 	atomic_t count;
 };
 
@@ -136,6 +132,7 @@ static inline uint8_t pvdrm_slot_id(struct pvdrm_mapped* mapped, struct pvdrm_sl
 struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
+int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_t seq);
 
 #endif  /* PVDRM_SLOT_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
