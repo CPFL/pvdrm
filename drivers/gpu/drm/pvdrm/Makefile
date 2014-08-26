@@ -6,6 +6,7 @@ pvdrm-y  := \
 	pvdrm_gem.o \
 	pvdrm_irq.o \
 	pvdrm_load.o \
+	pvdrm_pushbuf.o \
 	pvdrm_slot.o \
 	pvdrm_ttm.o \
 	pvdrm_vblank.o

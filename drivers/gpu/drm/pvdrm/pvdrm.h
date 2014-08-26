@@ -26,5 +26,5 @@
 
 #define to_pvdrm_gem_object(x) container_of(x, struct drm_pvdrm_gem_object, base)
 
-#endif  /* PVDRM_DRM_H_ */
+#endif  /* PVDRM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
