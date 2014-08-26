@@ -50,10 +50,24 @@ int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct dr
 	}
 
 	/* Adjust gem information for guest environment. */
+	printk(KERN_INFO "PVDRM: Allocating guest channel %d with host %d.\n", obj->handle, obj->host);
 	req_out->channel = obj->handle;
 
 	*result = obj;
 	return 0;
+}
+
+int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out)
+{
+	struct drm_pvdrm_gem_object *obj;
+	obj = pvdrm_gem_object_lookup(dev, file, req_out->channel);
+	if (!obj) {
+		printk(KERN_INFO "PVDRM: Freeing invalid channel %d.\n", req_out->channel);
+		return -EINVAL;
+	}
+	printk(KERN_INFO "PVDRM: Freeing guest channel %d with host %d.\n", obj->handle, obj->host);
+	req_out->channel = obj->host;
+	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

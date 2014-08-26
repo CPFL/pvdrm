@@ -32,6 +32,7 @@
 struct drm_nouveau_channel_alloc;
 
 int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct drm_pvdrm_gem_object** result);
+int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out);
 
 #endif  /* PVDRM_CHANNEL_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

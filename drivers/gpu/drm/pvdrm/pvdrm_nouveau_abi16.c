@@ -75,7 +75,7 @@ int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, 
 int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file)
 {
 	/* FIXME: Not implemented yet. */
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, data, sizeof(struct drm_nouveau_channel_free));
+	return pvdrm_channel_free(dev, file, data);
 }
 
 int pvdrm_nouveau_abi16_ioctl_grobj_alloc(struct drm_device *dev, void *data, struct drm_file *file)
