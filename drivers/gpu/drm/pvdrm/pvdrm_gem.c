@@ -22,6 +22,16 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <linux/types.h>
+
+#include <xen/xen.h>
+#include <xen/page.h>
+#include <xen/xenbus.h>
+#include <xen/xenbus_dev.h>
+#include <xen/grant_table.h>
+#include <xen/events.h>
+#include <asm/xen/hypervisor.h>
+
 #include "drmP.h"
 #include "drm.h"
 #include "drm_crtc_helper.h"
@@ -35,10 +45,31 @@
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	int ret = 0;
-	const uint64_t map_handle = (unsigned long long)vma->vm_private_data;
-	ret = -ENOMEM;
+	grant_ref_t ref = 0;
+	struct drm_device* dev = vma->vm_private_data;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
+	const uint64_t map_handle = vma->vm_pgoff;
+	struct drm_pvdrm_gem_mmap req = {
+		.map_handle = map_handle,
+		.flags = vmf->flags,
+	};
+	void* addr = NULL;
 
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
+	if (ret < 0) {
+		return ret;
+	}
+	ref = ret;
+	ret = 0;
+
+	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), ref, &addr);
+	if (ret) {
+		/* FIXME: error... */
+		return ret;
+	}
+
+	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, virt_to_pfn(addr));
 #if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
 	struct drm_device *dev = obj->base.dev;
@@ -173,7 +204,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
 	vma->vm_ops = dev->driver->gem_vm_ops;
-	vma->vm_private_data = (void*)(vma->vm_pgoff);
+	vma->vm_private_data = dev;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
 	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx\n", (unsigned long long)(vma->vm_pgoff));
