@@ -161,6 +161,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (slot->transfer.ref < 0) {
 		/* OK, there's no buffers. */
+		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
