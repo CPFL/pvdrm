@@ -308,6 +308,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 				BUG();
 				break;
 			}
+			printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, vaddr, virt_to_mfn(vaddr));
 		}
 		break;
 
