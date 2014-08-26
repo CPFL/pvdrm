@@ -74,10 +74,73 @@ static uint64_t pvdrm_back_count(struct pvdrm_back_device* info)
 static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 {
 	uint32_t id;
+	uint32_t pos;
 	atomic_dec(&info->mapped->count);
-	id = info->mapped->ring[info->mapped->get++ % PVDRM_SLOT_NR];
+	pos = ((uint32_t)atomic_add_return(1, &info->mapped->get)) % PVDRM_SLOT_NR;
+	id = info->mapped->ring[pos];
 	return &info->mapped->slot[id];
 }
+
+static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+{
+	/* buffers, reloc, push is user space pointers of the guest domain. */
+	int ret = 0;
+	struct drm_nouveau_gem_pushbuf* req = pvdrm_slot_payload(slot);
+	struct drm_nouveau_gem_pushbuf_bo* buffers = NULL;
+	struct drm_nouveau_gem_pushbuf_reloc* relocs = NULL;
+	struct drm_nouveau_gem_pushbuf_push* push = NULL;
+
+	if (req->nr_buffers && req->buffers) {
+		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
+			return -EINVAL;
+		}
+		buffers = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
+		if (!buffers) {
+			ret = -ENOMEM;
+			goto pushbuf_destroy_data;
+		}
+	}
+
+	if (req->nr_relocs && req->relocs) {
+		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
+			ret = -EINVAL;
+			goto pushbuf_destroy_data;
+		}
+		relocs = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_reloc) * req->nr_relocs, GFP_KERNEL);
+		if (!relocs) {
+			ret = -ENOMEM;
+			goto pushbuf_destroy_data;
+		}
+	}
+
+	if (req->nr_push && req->push) {
+		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
+			ret = -EINVAL;
+			goto pushbuf_destroy_data;
+		}
+		push = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_push) * req->nr_push, GFP_KERNEL);
+		if (!push) {
+			ret = -ENOMEM;
+			goto pushbuf_destroy_data;
+		}
+	}
+
+	ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+
+pushbuf_destroy_data:
+	if (buffers) {
+		kfree(buffers);
+	}
+	if (relocs) {
+		kfree(relocs);
+	}
+	if (push) {
+		kfree(push);
+	}
+
+	return ret;
+}
+
 
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
@@ -117,15 +180,20 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
-	case PVDRM_GEM_NOUVEAU_GEM_CLOSE: {
-			uint32_t handle = slot->gem_close.handle;
-			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, handle);
-			if (!obj) {
-				ret = -EINVAL;
-				break;
-			}
-			ret = drm_gem_handle_delete(file_priv, handle);
-		}
+	case PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF:
+		ret = process_pushbuf(info, slot);
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_PREP, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_GEM_NOUVEAU_GEM_CLOSE:
+		ret = drm_ioctl(info->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	default:
@@ -137,7 +205,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	slot->ret = ret;
 
 	/* Emit fence. */
-	pvdrm_fence_emit(&slot->__fence, 42);
+	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
 	return ret;
 }
 

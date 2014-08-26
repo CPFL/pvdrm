@@ -74,6 +74,7 @@ int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, 
 
 int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file)
 {
+	/* FIXME: Not implemented yet. */
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, data, sizeof(struct drm_nouveau_channel_free));
 }
 
@@ -98,8 +99,53 @@ int pvdrm_nouveau_gem_ioctl_new(struct drm_device *dev, void *data, struct drm_f
 	return pvdrm_gem_object_new(dev, file, data, &result);
 }
 
+struct pushbuf_copier {
+	struct drm_nouveau_gem_pushbuf_bo* buffers;
+	uint32_t nr_buffers;
+	struct drm_nouveau_gem_pushbuf_reloc* relocs;
+	uint32_t nr_relocs;
+	struct drm_nouveau_gem_pushbuf_push* push;
+	uint32_t nr_push;
+};
+
 int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file)
 {
+	struct drm_nouveau_gem_pushbuf* req = data;
+	struct drm_pvdrm_gem_object* chan;
+
+	struct pushbuf_copier copier = {
+		.buffers    = (void*)req->buffers,
+		.nr_buffers = req->nr_buffers,
+		.relocs     = (void*)req->relocs,
+		.nr_relocs  = req->nr_relocs,
+		.push       = (void*)req->push,
+		.nr_push    = req->nr_push
+	};
+
+	chan = pvdrm_gem_object_lookup(dev, file, req->channel);
+	if (!chan) {
+		return -EINVAL;
+	}
+	req->channel = chan->host;
+
+	if (req->nr_buffers && req->buffers) {
+		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
+			return -EINVAL;
+		}
+	}
+
+	if (req->nr_relocs && req->relocs) {
+		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
+			return -EINVAL;
+		}
+	}
+
+	if (req->nr_push && req->push) {
+		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
+			return -EINVAL;
+		}
+	}
+
 	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, data, sizeof(struct drm_nouveau_gem_pushbuf));
 }
 
