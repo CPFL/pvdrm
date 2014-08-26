@@ -42,5 +42,7 @@ int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct d
 struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle);
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, struct drm_file *file, uint32_t host, uint32_t size);
 
+int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
+
 #endif  /* PVDRM_GEM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

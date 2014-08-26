@@ -35,6 +35,10 @@
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	int ret = 0;
+	const uint64_t map_handle = (unsigned long long)vma->vm_private_data;
+	ret = -ENOMEM;
+
+	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
 #if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
 	struct drm_device *dev = obj->base.dev;
@@ -152,6 +156,30 @@ int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct d
 struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle)
 {
 	return (struct drm_pvdrm_gem_object*)drm_gem_object_lookup(dev, file, handle);
+}
+
+
+int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	int ret = 0;
+	struct drm_file* file_priv = filp->private_data;
+	struct drm_device* dev = file_priv->minor->dev;
+
+	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
+		return drm_mmap(filp, vma);
+	}
+
+	/* map_handle = vma->vm_pgoff; */
+
+	vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
+	vma->vm_ops = dev->driver->gem_vm_ops;
+	vma->vm_private_data = (void*)(vma->vm_pgoff);
+	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+
+	drm_vm_open_locked(dev, vma);
+
+	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx\n", (unsigned long long)(vma->vm_pgoff));
+	return ret;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */
