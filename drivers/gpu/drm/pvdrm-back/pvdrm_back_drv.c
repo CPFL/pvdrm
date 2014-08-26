@@ -273,6 +273,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_FREE: {
+			/* FIXME: Need to investigate more... */
 			struct drm_pvdrm_gem_free* req = pvdrm_slot_payload(slot);
 			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
 			if (!obj) {
