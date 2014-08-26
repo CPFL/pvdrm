@@ -176,8 +176,6 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_private_data = (void*)(vma->vm_pgoff);
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
-	drm_vm_open_locked(dev, vma);
-
 	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx\n", (unsigned long long)(vma->vm_pgoff));
 	return ret;
 }
