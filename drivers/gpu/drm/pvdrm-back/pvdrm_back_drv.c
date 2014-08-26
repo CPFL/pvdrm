@@ -81,6 +81,39 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 	return &info->mapped->slot[id];
 }
 
+struct copier {
+	struct drm_nouveau_gem_pushbuf_bo* buffers;
+	struct drm_nouveau_gem_pushbuf_reloc* relocs;
+	struct drm_nouveau_gem_pushbuf_push* push;
+};
+
+static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* addr)
+{
+	if (slot->transfer.nr_buffers) {
+		/* FIXME: Check buffer size doesn't exceed for the security issues. */
+		const size_t size = slot->transfer.nr_buffers * sizeof(struct drm_nouveau_gem_pushbuf_bo);
+		memcpy(copier->buffers, addr, size);
+		addr += size;
+		copier->buffers += slot->transfer.nr_buffers;
+	}
+
+	if (slot->transfer.nr_relocs) {
+		const size_t size = slot->transfer.nr_relocs * sizeof(struct drm_nouveau_gem_pushbuf_reloc);
+		memcpy(copier->relocs, addr, size);
+		addr += size;
+		copier->relocs += slot->transfer.nr_relocs;
+	}
+
+	if (slot->transfer.nr_push) {
+		const size_t size = slot->transfer.nr_push * sizeof(struct drm_nouveau_gem_pushbuf_push);
+		memcpy(copier->push, addr, size);
+		addr += size;
+		copier->push += slot->transfer.nr_push;
+	}
+
+	return 0;
+}
+
 static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	/* buffers, reloc, push is user space pointers of the guest domain. */
@@ -89,6 +122,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_bo* buffers = NULL;
 	struct drm_nouveau_gem_pushbuf_reloc* relocs = NULL;
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
+	void* addr = NULL;
 
 	if (req->nr_buffers && req->buffers) {
 		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
@@ -97,39 +131,81 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		buffers = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
 		if (!buffers) {
 			ret = -ENOMEM;
-			goto pushbuf_destroy_data;
+			goto destroy_data;
 		}
 	}
 
 	if (req->nr_relocs && req->relocs) {
 		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
 			ret = -EINVAL;
-			goto pushbuf_destroy_data;
+			goto destroy_data;
 		}
 		relocs = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_reloc) * req->nr_relocs, GFP_KERNEL);
 		if (!relocs) {
 			ret = -ENOMEM;
-			goto pushbuf_destroy_data;
+			goto destroy_data;
 		}
 	}
 
 	if (req->nr_push && req->push) {
 		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
 			ret = -EINVAL;
-			goto pushbuf_destroy_data;
+			goto destroy_data;
 		}
 		push = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_push) * req->nr_push, GFP_KERNEL);
 		if (!push) {
 			ret = -ENOMEM;
-			goto pushbuf_destroy_data;
+			goto destroy_data;
 		}
 	}
 
-	/* Transfer these data from the guest to the host. */
+	if (slot->transfer.ref < 0) {
+		/* OK, there's no buffers. */
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		goto destroy_data;
+	}
+
+	ret = xenbus_map_ring_valloc(info->xbdev, slot->transfer.ref, &addr);
+	if (ret) {
+		goto destroy_data;
+	}
+
+	/* Copying data to the host side. */
+	{
+		int next = 0;
+		struct copier copier = {
+			.buffers = buffers,
+			.relocs = relocs,
+			.push = push,
+		};
+		printk(KERN_INFO "PVDRM: Copying pushbufs...\n");
+		do {
+			printk(KERN_INFO "PVDRM: Copy! pushbuf...\n");
+			ret = transfer(&copier, slot, addr);
+			if (ret) {
+				goto unmap_ref;
+			}
+			next = slot->transfer.next;
+			if (next > 0) {
+				pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
+				pvdrm_fence_wait(&slot->__fence, 1, false);
+			}
+		} while (next > 0);
+		printk(KERN_INFO "PVDRM: Copying pushbuf... Done.\n");
+	}
+
+	req->buffers = (unsigned long)buffers;
+	req->relocs = (unsigned long)relocs;
+	req->push = (unsigned long)push;
 
 	ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
-pushbuf_destroy_data:
+unmap_ref:
+	if (addr) {
+		xenbus_unmap_ring_vfree(info->xbdev, addr);
+	}
+
+destroy_data:
 	if (buffers) {
 		kfree(buffers);
 	}

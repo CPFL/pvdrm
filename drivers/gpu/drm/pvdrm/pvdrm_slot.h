@@ -99,6 +99,15 @@ struct pvdrm_slot {
 		struct drm_gem_close gem_close;
 		struct drm_pvdrm_gem_open gem_open;
 	};
+
+	// For pushbuf operations.
+	struct {
+		grant_ref_t ref;
+		uint16_t nr_buffers;
+		uint16_t nr_relocs;
+		uint16_t nr_push;
+		uint16_t next;
+	} transfer;
 };
 
 static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {

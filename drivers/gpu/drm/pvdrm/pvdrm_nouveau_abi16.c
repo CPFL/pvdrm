@@ -37,6 +37,7 @@
 #include "pvdrm_cast.h"
 #include "pvdrm_channel.h"
 #include "pvdrm_gem.h"
+#include "pvdrm_pushbuf.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
@@ -110,43 +111,7 @@ struct pushbuf_copier {
 
 int pvdrm_nouveau_gem_ioctl_pushbuf(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	struct drm_nouveau_gem_pushbuf* req = data;
-	struct drm_pvdrm_gem_object* chan;
-
-	struct pushbuf_copier copier = {
-		.buffers    = (void*)req->buffers,
-		.nr_buffers = req->nr_buffers,
-		.relocs     = (void*)req->relocs,
-		.nr_relocs  = req->nr_relocs,
-		.push       = (void*)req->push,
-		.nr_push    = req->nr_push
-	};
-
-	chan = pvdrm_gem_object_lookup(dev, file, req->channel);
-	if (!chan) {
-		return -EINVAL;
-	}
-	req->channel = chan->host;
-
-	if (req->nr_buffers && req->buffers) {
-		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
-			return -EINVAL;
-		}
-	}
-
-	if (req->nr_relocs && req->relocs) {
-		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
-			return -EINVAL;
-		}
-	}
-
-	if (req->nr_push && req->push) {
-		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
-			return -EINVAL;
-		}
-	}
-
-	return pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, data, sizeof(struct drm_nouveau_gem_pushbuf));
+	return pvdrm_pushbuf(dev, file, data);
 }
 
 int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct drm_file *file)
@@ -165,6 +130,7 @@ int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, data, sizeof(struct drm_nouveau_gem_cpu_prep));
 
 	req->handle = obj->handle;
+	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
 
@@ -184,6 +150,7 @@ int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, data, sizeof(struct drm_nouveau_gem_cpu_fini));
 
 	req->handle = obj->handle;
+	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
 
@@ -203,6 +170,7 @@ int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
 
 	req->handle = obj->handle;
+	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
 
