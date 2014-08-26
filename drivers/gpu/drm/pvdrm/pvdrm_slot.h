@@ -61,6 +61,8 @@ enum {
 	PVDRM_GEM_NOUVEAU_GEM_FREE = 12,
 	PVDRM_GEM_NOUVEAU_GEM_OPEN = 13,
 	PVDRM_GEM_NOUVEAU_GEM_CLOSE = 14,
+
+	PVDRM_GEM_NOUVEAU_GEM_MMAP = 15,
 };
 
 struct drm_pvdrm_gem_free {
@@ -69,6 +71,11 @@ struct drm_pvdrm_gem_free {
 
 struct drm_pvdrm_gem_open {
 	uint32_t handle;
+};
+
+struct drm_pvdrm_gem_mmap {
+	uint64_t map_handle;
+	unsigned int flags;
 };
 
 struct pvdrm_slot {
@@ -98,6 +105,7 @@ struct pvdrm_slot {
 		struct drm_pvdrm_gem_free gem_free;
 		struct drm_gem_close gem_close;
 		struct drm_pvdrm_gem_open gem_open;
+		struct drm_pvdrm_gem_mmap gem_mmap;
 	};
 
 	// For pushbuf operations.

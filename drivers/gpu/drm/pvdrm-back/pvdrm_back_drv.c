@@ -291,6 +291,27 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		ret = drm_ioctl(info->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
+	case PVDRM_GEM_NOUVEAU_GEM_MMAP: {
+			/* FIXME: Need to check... */
+			struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
+			unsigned long vaddr = 0;
+			vaddr = vm_mmap(info->filp, 0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, req->map_handle);
+			if (!vaddr) {
+				/* FIXME: bug... */
+				BUG();
+			}
+
+			ret = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
+			if (ret < 0) {
+				/* FIXME: bug... */
+				xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
+				BUG();
+				break;
+			}
+		}
+		break;
+
+
 	default:
 		printk(KERN_INFO "PVDRM: unhandled slot %d\n", slot->code);
 		break;
