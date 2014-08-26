@@ -106,7 +106,7 @@ static struct drm_driver pvdrm_drm_driver = {
 	.enable_vblank = pvdrm_vblank_enable,
 	.disable_vblank = pvdrm_vblank_disable,
 
-	.name       = DRIVER_NAME,
+	/* .name       = DRIVER_NAME, */
 	.desc       = DRIVER_DESC,
 	.date       = DRIVER_DATE,
 	.major      = DRIVER_MAJOR,
@@ -121,9 +121,10 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 
 	printk(KERN_INFO "Proving PVDRM frontend driver.\n");
 
-        /* Setup ioctls. */
+        /* Setup pvdrm driver for "nouveau" */
 	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
 	pvdrm_drm_driver.num_ioctls = DRM_ARRAY_SIZE(pvdrm_nouveau_ioctls);
+        pvdrm_drm_driver.name = "nouveau";
 
 	ret = drm_xenbus_init(&pvdrm_drm_driver, xbdev);
 	if (ret) {
