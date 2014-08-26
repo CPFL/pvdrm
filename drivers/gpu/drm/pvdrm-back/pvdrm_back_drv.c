@@ -125,6 +125,8 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		}
 	}
 
+	/* Transfer these data from the guest to the host. */
+
 	ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
 pushbuf_destroy_data:
@@ -275,6 +277,16 @@ static int thread_main(void *arg)
 		}
 	}
 	printk(KERN_INFO "PVDRM: End main loop.\n");
+
+        /* Close DRM file. */
+	if (info->filp) {
+		mm_segment_t fs;
+		fs = get_fs();
+		set_fs(get_ds());
+		filp_close(info->filp, NULL);
+		set_fs(fs);
+		info->filp = NULL;
+	}
 
 	return 0;
 }
