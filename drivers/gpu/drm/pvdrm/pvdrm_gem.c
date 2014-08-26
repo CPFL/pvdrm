@@ -58,7 +58,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
 	if (ret < 0) {
-		return ret;
+		goto out;
 	}
 	ref = ret;
 	ret = 0;
@@ -66,7 +66,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), ref, &addr);
 	if (ret) {
 		/* FIXME: error... */
-		return ret;
+		BUG();
 	}
 
 	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, virt_to_pfn(addr));
@@ -83,6 +83,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	/* FIXME: Implement it. */
 #endif
+out:
 	switch (ret) {
 	case -EIO:
 		return VM_FAULT_SIGBUS;
