@@ -272,6 +272,20 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
+	case PVDRM_GEM_NOUVEAU_GEM_FREE: {
+			struct drm_pvdrm_gem_free* req = pvdrm_slot_payload(slot);
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+			if (!obj) {
+				ret = -EINVAL;
+				break;
+			}
+			drm_gem_object_handle_free(obj);
+			drm_gem_object_free(&obj->refcount);
+			kfree(obj);
+			ret = 0;
+		}
+		break;
+
 	case PVDRM_GEM_NOUVEAU_GEM_CLOSE:
 		ret = drm_ioctl(info->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
