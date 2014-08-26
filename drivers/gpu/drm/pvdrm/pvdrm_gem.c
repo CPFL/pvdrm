@@ -83,7 +83,20 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	/* FIXME: Implement it. */
 #endif
-	return ret;
+	switch (ret) {
+	case -EIO:
+		return VM_FAULT_SIGBUS;
+	case -EAGAIN:
+		set_need_resched();
+	case 0:
+	case -ERESTARTSYS:
+	case -EINTR:
+		return VM_FAULT_NOPAGE;
+	case -ENOMEM:
+		return VM_FAULT_OOM;
+	default:
+		return VM_FAULT_SIGBUS;
+	}
 }
 
 int pvdrm_gem_object_init(struct drm_gem_object *obj)
