@@ -220,6 +220,80 @@ destroy_data:
 	return ret;
 }
 
+static int process_mmap(struct pvdrm_back_device* info, const struct pvdrm_slot* slot)
+{
+	/* Call f_op->mmap operation directly. */
+	int ret = 0;
+	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
+	struct vm_area_struct* vma = NULL;
+	struct vm_fault vmf = { 0 };
+	int error = 0;
+	pte_t* pte = NULL;
+	struct vm_struct* area = NULL;
+	void* addr = NULL;
+
+	/* alloc_vm_area */
+	area = alloc_vm_area(/* FIXME */  PAGE_SIZE, &pte);
+	if (!area) {
+		BUG();
+	}
+	/* phys_addr_t maddr = arbitrary_virt_to_machine(pte).maddr; */
+	addr = area->addr;
+
+	vma = kmalloc(sizeof(*vma), GFP_KERNEL);
+	if (!vma) {
+		BUG();
+	}
+
+	vma->vm_mm = current->active_mm;
+	vma->vm_start = (unsigned long)addr;
+	vma->vm_end = ((unsigned long)addr) + PAGE_SIZE;
+	/* vma->vm_flags = vm_flags; */
+	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
+	vma->vm_pgoff = req->map_handle;
+	vma->vm_file = info->filp;
+	/* get_file(info->filp); */
+	error = info->filp->f_op->mmap(info->filp, vma);
+	if (error) {
+		BUG();
+	}
+
+	/* vmf.flags =  */
+	vmf.pgoff = req->map_handle;
+	vmf.virtual_address = addr;
+	error = vma->vm_ops->fault(vma, &vmf);
+	if (error) {
+		BUG();
+	}
+
+	ret = xenbus_grant_ring(info->xbdev, virt_to_mfn((unsigned long)vmf.virtual_address));
+	if (ret < 0) {
+		/* FIXME: bug... */
+		xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
+		BUG();
+	}
+	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, (unsigned long)addr, virt_to_mfn((unsigned long)addr));
+
+	return ret;
+
+#if 0
+	error = vm_mmap(info->filp, 0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, req->map_handle << PAGE_SHIFT);
+	if (error <= 0) {
+		/* FIXME: bug... */
+		BUG();
+	}
+	vaddr = (unsigned long)error;
+
+	ret = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
+	if (ret < 0) {
+		/* FIXME: bug... */
+		xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
+		BUG();
+		break;
+	}
+	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, vaddr, virt_to_mfn(vaddr));
+#endif
+}
 
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
@@ -291,25 +365,9 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		ret = drm_ioctl(info->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
-	case PVDRM_GEM_NOUVEAU_GEM_MMAP: {
-			/* FIXME: Need to check... */
-			struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
-			unsigned long vaddr = 0;
-			vaddr = vm_mmap(info->filp, 0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, req->map_handle);
-			if (!vaddr) {
-				/* FIXME: bug... */
-				BUG();
-			}
-
-			ret = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
-			if (ret < 0) {
-				/* FIXME: bug... */
-				xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
-				BUG();
-				break;
-			}
-			printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, vaddr, virt_to_mfn(vaddr));
-		}
+	case PVDRM_GEM_NOUVEAU_GEM_MMAP:
+		/* FIXME: Need to check... */
+		ret = process_mmap(info, slot);
 		break;
 
 
