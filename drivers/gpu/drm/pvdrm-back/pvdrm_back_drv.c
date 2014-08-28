@@ -220,7 +220,7 @@ destroy_data:
 	return ret;
 }
 
-static int process_mmap(struct pvdrm_back_device* info, const struct pvdrm_slot* slot)
+static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	/* Call f_op->mmap operation directly. */
 	int ret = 0;
@@ -231,14 +231,18 @@ static int process_mmap(struct pvdrm_back_device* info, const struct pvdrm_slot*
 	pte_t* pte = NULL;
 	struct vm_struct* area = NULL;
 	void* addr = NULL;
+	unsigned level = 0;
+	uint64_t size = 0;
 
 	/* alloc_vm_area */
-	area = alloc_vm_area(/* FIXME */  PAGE_SIZE, &pte);
+	size = (req->vm_end - req->vm_start);
+	area = alloc_vm_area(size, &pte);
 	if (!area) {
 		BUG();
 	}
-	/* phys_addr_t maddr = arbitrary_virt_to_machine(pte).maddr; */
+	phys_addr_t maddr = arbitrary_virt_to_machine(area->addr).maddr;
 	addr = area->addr;
+	printk(KERN_INFO "PVDRM:allocated area addresss 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", area->addr, area->nr_pages, area->size, maddr, info->mapped);
 
 	vma = kmalloc(sizeof(*vma), GFP_KERNEL);
 	if (!vma) {
@@ -247,8 +251,9 @@ static int process_mmap(struct pvdrm_back_device* info, const struct pvdrm_slot*
 
 	vma->vm_mm = current->active_mm;
 	vma->vm_start = (unsigned long)addr;
-	vma->vm_end = ((unsigned long)addr) + PAGE_SIZE;
-	/* vma->vm_flags = vm_flags; */
+	vma->vm_end = ((unsigned long)addr) + size;
+	vma->vm_flags = req->flags;
+	vma->vm_page_prot = pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
 	vma->vm_pgoff = req->map_handle;
 	vma->vm_file = info->filp;
@@ -258,21 +263,32 @@ static int process_mmap(struct pvdrm_back_device* info, const struct pvdrm_slot*
 		BUG();
 	}
 
-	/* vmf.flags =  */
+	vmf.flags = req->flags;
 	vmf.pgoff = req->map_handle;
 	vmf.virtual_address = addr;
-	error = vma->vm_ops->fault(vma, &vmf);
-	if (error) {
-		BUG();
-	}
+	do {
+		error = vma->vm_ops->fault(vma, &vmf);
+		if (error & VM_FAULT_ERROR) {
+			BUG();
+		}
+	} while (error & VM_FAULT_RETRY);
+	printk(KERN_INFO "PVDRM: fault with %d.\n", error);
 
-	ret = xenbus_grant_ring(info->xbdev, virt_to_mfn((unsigned long)vmf.virtual_address));
+	if (error & VM_FAULT_NOPAGE) {
+		/* page is installed. */
+	} else if (error & VM_FAULT_LOCKED) {
+		/* shoudl install page. */
+	}
+	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, (unsigned long)vmf.virtual_address, arbitrary_virt_to_machine(addr).maddr);
+
+	ret = xenbus_grant_ring(info->xbdev, arbitrary_virt_to_machine(addr).maddr);
 	if (ret < 0) {
 		/* FIXME: bug... */
 		xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
 		BUG();
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, (unsigned long)addr, virt_to_mfn((unsigned long)addr));
+
+	ret = 0;
 
 	return ret;
 
@@ -381,6 +397,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
+	printk(KERN_INFO "PVDRM: slot %d is done\n", slot->code);
 	return ret;
 }
 

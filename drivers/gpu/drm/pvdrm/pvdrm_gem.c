@@ -52,6 +52,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct drm_pvdrm_gem_mmap req = {
 		.map_handle = map_handle,
 		.flags = vmf->flags,
+		.vm_start = vma->vm_start,
+		.vm_end = vma->vm_end
 	};
 	void* addr = NULL;
 
