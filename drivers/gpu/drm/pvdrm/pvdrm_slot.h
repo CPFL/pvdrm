@@ -76,6 +76,8 @@ struct drm_pvdrm_gem_open {
 struct drm_pvdrm_gem_mmap {
 	uint64_t map_handle;
 	unsigned int flags;
+	uint64_t vm_start;
+	uint64_t vm_end;
 };
 
 struct pvdrm_slot {
