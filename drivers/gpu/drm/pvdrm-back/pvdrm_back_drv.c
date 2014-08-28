@@ -89,26 +89,26 @@ struct copier {
 
 static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* addr)
 {
-	if (slot->transfer.nr_buffers) {
+	if (slot->u.transfer.nr_buffers) {
 		/* FIXME: Check buffer size doesn't exceed for the security issues. */
-		const size_t size = slot->transfer.nr_buffers * sizeof(struct drm_nouveau_gem_pushbuf_bo);
+		const size_t size = slot->u.transfer.nr_buffers * sizeof(struct drm_nouveau_gem_pushbuf_bo);
 		memcpy(copier->buffers, addr, size);
 		addr += size;
-		copier->buffers += slot->transfer.nr_buffers;
+		copier->buffers += slot->u.transfer.nr_buffers;
 	}
 
-	if (slot->transfer.nr_relocs) {
-		const size_t size = slot->transfer.nr_relocs * sizeof(struct drm_nouveau_gem_pushbuf_reloc);
+	if (slot->u.transfer.nr_relocs) {
+		const size_t size = slot->u.transfer.nr_relocs * sizeof(struct drm_nouveau_gem_pushbuf_reloc);
 		memcpy(copier->relocs, addr, size);
 		addr += size;
-		copier->relocs += slot->transfer.nr_relocs;
+		copier->relocs += slot->u.transfer.nr_relocs;
 	}
 
-	if (slot->transfer.nr_push) {
-		const size_t size = slot->transfer.nr_push * sizeof(struct drm_nouveau_gem_pushbuf_push);
+	if (slot->u.transfer.nr_push) {
+		const size_t size = slot->u.transfer.nr_push * sizeof(struct drm_nouveau_gem_pushbuf_push);
 		memcpy(copier->push, addr, size);
 		addr += size;
-		copier->push += slot->transfer.nr_push;
+		copier->push += slot->u.transfer.nr_push;
 	}
 
 	return 0;
@@ -159,14 +159,14 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		}
 	}
 
-	if (slot->transfer.ref < 0) {
+	if (slot->u.transfer.ref < 0) {
 		/* OK, there's no buffers. */
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
 
-	ret = xenbus_map_ring_valloc(info->xbdev, slot->transfer.ref, &addr);
+	ret = xenbus_map_ring_valloc(info->xbdev, slot->u.transfer.ref, &addr);
 	if (ret) {
 		goto destroy_data;
 	}
@@ -186,7 +186,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			if (ret) {
 				goto unmap_ref;
 			}
-			next = slot->transfer.next;
+			next = slot->u.transfer.next;
 			if (next > 0) {
 				pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
 				pvdrm_fence_wait(&slot->__fence, 1, false);
@@ -223,26 +223,31 @@ destroy_data:
 static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	/* Call f_op->mmap operation directly. */
+	int i;
 	int ret = 0;
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
 	struct vm_area_struct* vma = NULL;
 	struct vm_fault vmf = { 0 };
-	int error = 0;
 	pte_t* pte = NULL;
 	struct vm_struct* area = NULL;
 	void* addr = NULL;
-	unsigned level = 0;
 	uint64_t size = 0;
+	grant_ref_t head;
+	uint32_t pages = 0;
 
-	/* alloc_vm_area */
 	size = (req->vm_end - req->vm_start);
+	pages = size / PAGE_SIZE;
+
+	if (pages > PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL) {
+		return -EINVAL;
+	}
+
 	area = alloc_vm_area(size, &pte);
 	if (!area) {
 		BUG();
 	}
-	phys_addr_t maddr = arbitrary_virt_to_machine(area->addr).maddr;
 	addr = area->addr;
-	printk(KERN_INFO "PVDRM:allocated area addresss 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", area->addr, area->nr_pages, area->size, maddr, info->mapped);
+	printk(KERN_INFO "PVDRM:allocated area addresss size%lu 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", size, area->addr, area->nr_pages, area->size, info->mapped);
 
 	vma = kmalloc(sizeof(*vma), GFP_KERNEL);
 	if (!vma) {
@@ -258,8 +263,8 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	vma->vm_pgoff = req->map_handle;
 	vma->vm_file = info->filp;
 	/* get_file(info->filp); */
-	error = info->filp->f_op->mmap(info->filp, vma);
-	if (error) {
+	ret = info->filp->f_op->mmap(info->filp, vma);
+	if (ret) {
 		BUG();
 	}
 
@@ -267,48 +272,31 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	vmf.pgoff = req->map_handle;
 	vmf.virtual_address = addr;
 	do {
-		error = vma->vm_ops->fault(vma, &vmf);
-		if (error & VM_FAULT_ERROR) {
+		ret = vma->vm_ops->fault(vma, &vmf);
+		if (ret & VM_FAULT_ERROR) {
 			BUG();
 		}
-	} while (error & VM_FAULT_RETRY);
-	printk(KERN_INFO "PVDRM: fault with %d.\n", error);
+	} while (ret & VM_FAULT_RETRY);
+	printk(KERN_INFO "PVDRM: fault with %d.\n", ret);
 
-	if (error & VM_FAULT_NOPAGE) {
+	if (ret & VM_FAULT_NOPAGE) {
 		/* page is installed. */
-	} else if (error & VM_FAULT_LOCKED) {
+	} else if (ret & VM_FAULT_LOCKED) {
 		/* shoudl install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, (unsigned long)vmf.virtual_address, arbitrary_virt_to_machine(addr).maddr);
+	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(*pte)));
 
-	ret = xenbus_grant_ring(info->xbdev, arbitrary_virt_to_machine(addr).maddr);
-	if (ret < 0) {
-		/* FIXME: bug... */
-		xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
-		BUG();
+	for (i = 0; i < pages; ++i) {
+		int ref = xenbus_grant_ring(info->xbdev, page_to_phys(pte_page(*pte)));
+		if (ref < 0) {
+			/* FIXME: bug... */
+			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
+			BUG();
+		}
+		slot->u.references[i] = ref;
 	}
 
-	ret = 0;
-
-	return ret;
-
-#if 0
-	error = vm_mmap(info->filp, 0, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, req->map_handle << PAGE_SHIFT);
-	if (error <= 0) {
-		/* FIXME: bug... */
-		BUG();
-	}
-	vaddr = (unsigned long)error;
-
-	ret = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
-	if (ret < 0) {
-		/* FIXME: bug... */
-		xenbus_dev_fatal(info->xbdev, ret, "granting ring page");
-		BUG();
-		break;
-	}
-	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%lx / 0x%lx\n", ret, vaddr, virt_to_mfn(vaddr));
-#endif
+	return pages;
 }
 
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
@@ -485,7 +473,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	int ret;
 	struct pvdrm_back_device* info;
 
-	printk(KERN_INFO "Proving PVDRM backend driver.\n");
+	printk(KERN_INFO "Proving PVDRM backend driver %d.\n", xen_pv_domain());
 
 	info = kzalloc(sizeof(struct pvdrm_back_device), GFP_KERNEL);
 	if (!info) {

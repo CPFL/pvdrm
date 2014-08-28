@@ -42,6 +42,21 @@
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
+/* FIXME: It's too dangerous. And it's not correct on ia32 environment. */
+static struct page* extract_page(unsigned long address)
+{
+	struct mm_struct* mm = current->mm;
+	pgd_t* pgd;
+	pud_t* pud;
+	pmd_t* pmd;
+	pte_t* pte;
+	pgd = pgd_offset(mm, address);
+	pud = pud_offset(pgd, address);
+	pmd = pmd_offset(pud, address);
+	pte = pte_offset_map(pmd, address);
+	return pte_page(*pte);
+}
+
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	int ret = 0;
@@ -55,23 +70,44 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		.vm_start = vma->vm_start,
 		.vm_end = vma->vm_end
 	};
-	void* addr = NULL;
+	int i;
+	int pages = 0;
+	pvdrm_slot_references references = { 0 };
 
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
+	{
+		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
+		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
+		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
+		memcpy(pvdrm_slot_payload(slot), &req, sizeof(struct drm_pvdrm_gem_mmap));
+		slot->u.transfer.ref = -ENOMEM;
+		memcpy(&req, pvdrm_slot_payload(slot), sizeof(struct drm_pvdrm_gem_mmap));
+		ret = slot->ret;
+		memcpy(references, slot->u.references, sizeof(pvdrm_slot_references));
+		pvdrm_slot_free(pvdrm, slot);
+	}
+
+
 	if (ret < 0) {
 		goto out;
 	}
-	ref = ret;
+	pages = ret;
 	ret = 0;
 
-	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), ref, &addr);
-	if (ret) {
-		/* FIXME: error... */
-		BUG();
+	for (i = 0; i < pages; ++i) {
+		/* FIXME: Use gnttab_map_refs. */
+		void* addr = NULL;
+		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), references[i], &addr);
+		if (ret) {
+			/* FIXME: error... */
+			BUG();
+		}
+		ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, page_to_pfn(extract_page((unsigned long)addr)));
+		if (ret) {
+			BUG();
+		}
 	}
 
-	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, virt_to_pfn(addr));
 #if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
 	struct drm_device *dev = obj->base.dev;

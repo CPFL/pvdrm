@@ -31,7 +31,9 @@
 #include <drm/nouveau_drm.h>
 
 #include <xen/grant_table.h>
-#define PVDRM_SLOT_NR 32
+#define PVDRM_SLOT_NR 16
+/* FIXME */
+#define PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL 32
 
 #include "drmP.h"
 #include "../nouveau/nouveau_abi16.h"
@@ -80,6 +82,8 @@ struct drm_pvdrm_gem_mmap {
 	uint64_t vm_end;
 };
 
+typedef uint32_t pvdrm_slot_references[PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL];
+
 struct pvdrm_slot {
 	/* Headers */
 	struct pvdrm_fence __fence;
@@ -111,13 +115,16 @@ struct pvdrm_slot {
 	};
 
 	// For pushbuf operations.
-	struct {
-		grant_ref_t ref;
-		uint16_t nr_buffers;
-		uint16_t nr_relocs;
-		uint16_t nr_push;
-		uint16_t next;
-	} transfer;
+	union {
+		struct {
+			grant_ref_t ref;
+			uint16_t nr_buffers;
+			uint16_t nr_relocs;
+			uint16_t nr_push;
+			uint16_t next;
+		} transfer;
+		pvdrm_slot_references references;
+	} u;
 };
 
 static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {

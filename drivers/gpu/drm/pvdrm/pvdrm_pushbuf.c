@@ -83,9 +83,9 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 	size_t nr;
 	size_t i;
 
-	slot->transfer.nr_buffers = 0;
-	slot->transfer.nr_relocs = 0;
-	slot->transfer.nr_push = 0;
+	slot->u.transfer.nr_buffers = 0;
+	slot->u.transfer.nr_relocs = 0;
+	slot->u.transfer.nr_push = 0;
 
 	nr = can_transfer_buffers_nr(copier, rest);
 	if (nr) {
@@ -108,7 +108,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 		copier->nr_buffers -= nr;
 		addr += size;
 		rest -= size;
-		slot->transfer.nr_buffers = nr;
+		slot->u.transfer.nr_buffers = nr;
 	}
 
 	nr = can_transfer_relocs_nr(copier, rest);
@@ -120,7 +120,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 		copier->nr_relocs -= nr;
 		addr += size;
 		rest -= size;
-		slot->transfer.nr_relocs = nr;
+		slot->u.transfer.nr_relocs = nr;
 	}
 
 	nr = can_transfer_push_nr(copier, rest);
@@ -132,7 +132,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 		copier->nr_push -= nr;
 		addr += size;
 		rest -= size;
-		slot->transfer.nr_push = nr;
+		slot->u.transfer.nr_push = nr;
 	}
 
 	if (!copier->nr_buffers && !copier->nr_relocs && !copier->nr_push) {
@@ -192,7 +192,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
-		slot->transfer.ref = -ENOMEM;
+		slot->u.transfer.ref = -ENOMEM;
 		memcpy(req_out, pvdrm_slot_payload(slot), sizeof(struct drm_nouveau_gem_pushbuf));
 		ret = slot->ret;
 		pvdrm_slot_free(pvdrm, slot);
@@ -237,7 +237,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		do {
 			printk(KERN_INFO "PVDRM: Copy! pushbuf...\n");
 			next = transfer(dev, file, &copier, vaddr, slot);
-			slot->transfer.next = next;
+			slot->u.transfer.next = next;
 			if (first) {
 				first = 0;
 				pvdrm_slot_request_async(pvdrm, slot);
