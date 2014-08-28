@@ -102,7 +102,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			/* FIXME: error... */
 			BUG();
 		}
-		ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, page_to_pfn(extract_page((unsigned long)addr)));
+		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, page_to_pfn(extract_page((unsigned long)addr)));
 		if (ret) {
 			BUG();
 		}
