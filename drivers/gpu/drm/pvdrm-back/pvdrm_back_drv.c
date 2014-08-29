@@ -124,6 +124,14 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
 	void* addr = NULL;
 
+	if (slot->u.transfer.ref < 0) {
+		/* OK, there's no buffers. */
+		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
+		/* FIXME: Check parameter is valid. */
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		goto destroy_data;
+	}
+
 	if (req->nr_buffers && req->buffers) {
 		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
 			return -EINVAL;
@@ -157,13 +165,6 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			ret = -ENOMEM;
 			goto destroy_data;
 		}
-	}
-
-	if (slot->u.transfer.ref < 0) {
-		/* OK, there's no buffers. */
-		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
-		goto destroy_data;
 	}
 
 	ret = xenbus_map_ring_valloc(info->xbdev, slot->u.transfer.ref, &addr);
