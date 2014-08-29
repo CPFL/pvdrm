@@ -60,7 +60,6 @@ static struct page* extract_page(unsigned long address)
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	int ret = 0;
-	grant_ref_t ref = 0;
 	struct drm_device* dev = vma->vm_private_data;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	const uint64_t map_handle = vma->vm_pgoff;
@@ -80,7 +79,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
 		memcpy(pvdrm_slot_payload(slot), &req, sizeof(struct drm_pvdrm_gem_mmap));
-		slot->u.transfer.ref = -ENOMEM;
+		ret = pvdrm_slot_request(pvdrm, slot);
 		memcpy(&req, pvdrm_slot_payload(slot), sizeof(struct drm_pvdrm_gem_mmap));
 		ret = slot->ret;
 		memcpy(references, slot->u.references, sizeof(pvdrm_slot_references));
@@ -94,6 +93,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	pages = ret;
 	ret = 0;
 
+	printk(KERN_INFO "PVDRM: mapping pages %d\n", pages);
 	for (i = 0; i < pages; ++i) {
 		/* FIXME: Use gnttab_map_refs. */
 		void* addr = NULL;
@@ -102,6 +102,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			/* FIXME: error... */
 			BUG();
 		}
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%lx\n", i, page_to_pfn(extract_page((unsigned long)addr)));
 		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, page_to_pfn(extract_page((unsigned long)addr)));
 		if (ret) {
 			BUG();
