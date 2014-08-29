@@ -117,7 +117,7 @@ struct pvdrm_slot {
 	// For pushbuf operations.
 	union {
 		struct {
-			grant_ref_t ref;
+			int32_t ref;
 			uint16_t nr_buffers;
 			uint16_t nr_relocs;
 			uint16_t nr_push;
