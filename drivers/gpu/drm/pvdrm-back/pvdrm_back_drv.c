@@ -228,7 +228,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
 	struct vm_area_struct* vma = NULL;
 	struct vm_fault vmf = { 0 };
-	pte_t* pte = NULL;
+	pte_t* ptes = NULL;
 	struct vm_struct* area = NULL;
 	void* addr = NULL;
 	uint64_t size = 0;
@@ -242,7 +242,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		return -EINVAL;
 	}
 
-	area = alloc_vm_area(size, &pte);
+	area = alloc_vm_area(size, &ptes);
 	if (!area) {
 		BUG();
 	}
@@ -284,10 +284,10 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	} else if (ret & VM_FAULT_LOCKED) {
 		/* shoudl install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(*pte)));
+	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
 
 	for (i = 0; i < pages; ++i) {
-		int ref = xenbus_grant_ring(info->xbdev, page_to_phys(pte_page(*pte)));
+		int ref = xenbus_grant_ring(info->xbdev, page_to_phys(pte_page(ptes[i])));
 		if (ref < 0) {
 			/* FIXME: bug... */
 			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
