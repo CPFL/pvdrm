@@ -76,7 +76,6 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
-		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
 		memcpy(pvdrm_slot_payload(slot), &req, sizeof(struct drm_pvdrm_gem_mmap));
 		ret = pvdrm_slot_request(pvdrm, slot);
