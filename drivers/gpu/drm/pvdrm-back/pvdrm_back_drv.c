@@ -124,11 +124,12 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
 	void* addr = NULL;
 
-	if (slot->u.transfer.ref < 0) {
+	printk(KERN_INFO "PVDRM: pushbuf with ref %d\n", slot->u.transfer.ref);
+	if (slot->u.transfer.ref < 0 || req->nr_push == 0) {
 		/* OK, there's no buffers. */
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		// ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
 

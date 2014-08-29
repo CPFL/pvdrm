@@ -152,7 +152,6 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 	uint8_t* vaddr = NULL;
 	grant_ref_t ref = -ENOMEM;
 	struct xenbus_device* xbdev = NULL;
-	bool transfer_is_needed = false;
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	xbdev = pvdrm_to_xbdev(pvdrm);
@@ -163,31 +162,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 	}
 	req_out->channel = chan->host;
 
-	if (req_out->nr_buffers && req_out->buffers) {
-		if (req_out->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
-			ret = -EINVAL;
-			goto close_channel;
-		}
-		transfer_is_needed = true;
-	}
-
-	if (req_out->nr_relocs && req_out->relocs) {
-		if (req_out->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
-			ret = -EINVAL;
-			goto close_channel;
-		}
-		transfer_is_needed = true;
-	}
-
-	if (req_out->nr_push && req_out->push) {
-		if (req_out->nr_push > NOUVEAU_GEM_MAX_PUSH) {
-			ret = -EINVAL;
-			goto close_channel;
-		}
-		transfer_is_needed = true;
-	}
-
-	if (!transfer_is_needed) {
+	if (req_out->nr_push == 0) {
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
@@ -198,6 +173,27 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		ret = slot->ret;
 		pvdrm_slot_free(pvdrm, slot);
 		goto close_channel;
+	}
+
+	if (req_out->nr_buffers && req_out->buffers) {
+		if (req_out->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
+			ret = -EINVAL;
+			goto close_channel;
+		}
+	}
+
+	if (req_out->nr_relocs && req_out->relocs) {
+		if (req_out->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
+			ret = -EINVAL;
+			goto close_channel;
+		}
+	}
+
+	if (req_out->nr_push && req_out->push) {
+		if (req_out->nr_push > NOUVEAU_GEM_MAX_PUSH) {
+			ret = -EINVAL;
+			goto close_channel;
+		}
 	}
 
 	printk(KERN_INFO "PVDRM: Copying pushbufs...\n");
