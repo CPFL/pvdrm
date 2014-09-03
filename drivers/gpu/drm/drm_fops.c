@@ -485,7 +485,7 @@ int drm_release(struct inode *inode, struct file *filp)
 		list_for_each_entry(temp, &dev->filelist, lhead) {
 			if ((temp->master == file_priv->master) &&
 			    (temp != file_priv))
-				temp->authenticated = 0;
+				temp->authenticated = temp->authenticated && capable(CAP_SYS_ADMIN);
 		}
 
 		/**
