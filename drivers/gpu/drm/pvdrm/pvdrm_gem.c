@@ -23,6 +23,7 @@
 */
 
 #include <linux/types.h>
+#include <linux/delay.h>
 
 #include <xen/xen.h>
 #include <xen/page.h>
@@ -84,6 +85,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		memcpy(references, slot->u.references, sizeof(pvdrm_slot_references));
 		pvdrm_slot_free(pvdrm, slot);
 	}
+	printk(KERN_INFO "PVDRM: fault is called with 0x%llx done %d.\n", ret);
+        msleep(10000);
 
 
 	if (ret < 0) {
@@ -93,16 +96,21 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	ret = 0;
 
 	printk(KERN_INFO "PVDRM: mapping pages %d\n", pages);
+        msleep(10000);
 	for (i = 0; i < pages; ++i) {
 		/* FIXME: Use gnttab_map_refs. */
 		void* addr = NULL;
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] = %d\n", i, references[i]);
+                msleep(10000);
 		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), references[i], &addr);
 		if (ret) {
 			/* FIXME: error... */
 			BUG();
 		}
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), addr);
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / %d / 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), ret, pfn_to_mfn(page_to_pfn(extract_page((unsigned long)addr))), addr);
+                msleep(10000);
 		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, page_to_pfn(extract_page((unsigned long)addr)));
+		// ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, page_to_pfn(extract_page((unsigned long)addr)));
 		if (ret) {
 			BUG();
 		}
