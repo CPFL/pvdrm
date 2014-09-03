@@ -45,7 +45,7 @@
 /* FIXME: It's too dangerous. And it's not correct on ia32 environment. */
 static struct page* extract_page(unsigned long address)
 {
-	struct mm_struct* mm = current->mm;
+	struct mm_struct* mm = current->active_mm;
 	pgd_t* pgd;
 	pud_t* pud;
 	pmd_t* pmd;
