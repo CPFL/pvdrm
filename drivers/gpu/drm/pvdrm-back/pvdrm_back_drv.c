@@ -24,6 +24,7 @@
 
 #include <linux/atomic.h>
 #include <linux/console.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/kthread.h>
@@ -129,7 +130,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		/* OK, there's no buffers. */
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
-		// ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
 
@@ -287,9 +288,12 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		/* shoudl install page. */
 	}
 	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
+	msleep(10000);
 
 	for (i = 0; i < pages; ++i) {
-		int ref = xenbus_grant_ring(info->xbdev, page_to_phys(pte_page(ptes[i])));
+		int ref = xenbus_grant_ring(info->xbdev, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
+		printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
+		msleep(10000);
 		if (ref < 0) {
 			/* FIXME: bug... */
 			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
@@ -297,6 +301,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		}
 		slot->u.references[i] = ref;
 	}
+	msleep(10000);
 
 	return pages;
 }
@@ -315,6 +320,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	fs = get_fs();
 	set_fs(get_ds());
 	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
+	msleep(10000);
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */

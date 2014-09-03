@@ -101,7 +101,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			/* FIXME: error... */
 			BUG();
 		}
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%lx\n", i, page_to_pfn(extract_page((unsigned long)addr)));
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), addr);
 		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, page_to_pfn(extract_page((unsigned long)addr)));
 		if (ret) {
 			BUG();
