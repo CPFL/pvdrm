@@ -246,6 +246,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->map_handle = info->map_handle;
 
         spin_lock(&pvdrm->mh2obj_lock);
+        printk(KERN_INFO "PVDRM: registering %lx / %llx\n", obj->hash.key, info->map_handle);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
         spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
@@ -310,6 +311,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	spin_lock(&pvdrm->mh2obj_lock);
+        printk(KERN_INFO "PVDRM: lookup %llx\n", vma->vm_pgoff);
 	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
 		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
