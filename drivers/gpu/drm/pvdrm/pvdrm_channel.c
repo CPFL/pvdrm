@@ -77,6 +77,12 @@ again:
 	return 0;
 }
 
+static void pvdrm_channel_release(struct pvdrm_channel* channel)
+{
+	printk(KERN_INFO "Deallocating channel %d with host %d.\n", channel->channel, channel->host);
+        kfree(channel);
+}
+
 int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out)
 {
 	int ret = 0;
@@ -100,10 +106,10 @@ int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm
 	printk(KERN_INFO "PVDRM: Freeing guest channel %d with host %d.\n", channel->channel, channel->host);
 	req_out->channel = channel->host;
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
-	kref_put(&channel->ref, kfree);
+	kref_put(&channel->ref, pvdrm_channel_release);
 
 	/* For free. */
-	kref_put(&channel->ref, kfree);
+	kref_put(&channel->ref, pvdrm_channel_release);
 	return ret;
 }
 
