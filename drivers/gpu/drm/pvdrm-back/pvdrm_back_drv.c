@@ -139,7 +139,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
 			return -EINVAL;
 		}
-		buffers = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
+		buffers = kzalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
 		if (!buffers) {
 			ret = -ENOMEM;
 			goto destroy_data;
@@ -151,7 +151,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			ret = -EINVAL;
 			goto destroy_data;
 		}
-		relocs = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_reloc) * req->nr_relocs, GFP_KERNEL);
+		relocs = kzalloc(sizeof(struct drm_nouveau_gem_pushbuf_reloc) * req->nr_relocs, GFP_KERNEL);
 		if (!relocs) {
 			ret = -ENOMEM;
 			goto destroy_data;
@@ -163,7 +163,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			ret = -EINVAL;
 			goto destroy_data;
 		}
-		push = kmalloc(sizeof(struct drm_nouveau_gem_pushbuf_push) * req->nr_push, GFP_KERNEL);
+		push = kzalloc(sizeof(struct drm_nouveau_gem_pushbuf_push) * req->nr_push, GFP_KERNEL);
 		if (!push) {
 			ret = -ENOMEM;
 			goto destroy_data;
@@ -318,7 +318,6 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	wmb();
 	xenbus_unmap_ring_vfree(info->xbdev, refs_addr);
 	// msleep(1000);
-
 	return pages;
 }
 
