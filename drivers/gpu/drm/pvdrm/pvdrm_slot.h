@@ -123,7 +123,7 @@ struct pvdrm_slot {
 			uint16_t nr_push;
 			uint16_t next;
 		} transfer;
-		pvdrm_slot_references references;
+                int32_t ref;
 	} u;
 };
 

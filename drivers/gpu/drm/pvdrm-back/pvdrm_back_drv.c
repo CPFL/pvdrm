@@ -249,10 +249,6 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	size = (req->vm_end - req->vm_start);
 	pages = size / PAGE_SIZE;
 
-	if (pages > PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL) {
-		return -EINVAL;
-	}
-
 	area = alloc_vm_area(size, &ptes);
 	if (!area) {
 		BUG();
@@ -297,9 +293,11 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	}
 	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
 
-	// const uintptr_t vaddr = __get_free_pages(GFP_NOIO | __GFP_HIGH, get_order(size));
-	// const uintptr_t vaddr = __get_free_pages(GFP_KERNEL, get_order(size));
-
+        int* refs;
+        ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, &refs);
+        if (ret) {
+                BUG();
+        }
 	for (i = 0; i < pages; ++i) {
 		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), 0);
 		// int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, virt_to_mfn(vaddr + i * PAGE_SIZE), 0);
@@ -312,7 +310,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
 			BUG();
 		}
-		slot->u.references[i] = ref;
+		refs[i] = ref;
 	}
 	// msleep(1000);
 
