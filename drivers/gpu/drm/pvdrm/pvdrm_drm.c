@@ -52,7 +52,7 @@
 #include "pvdrm_nouveau_abi16.h"
 
 static const struct vm_operations_struct pvdrm_gem_vm_ops = {
-	.fault = pvdrm_gem_fault,
+	/* .fault = pvdrm_gem_fault, */
 	.open = drm_gem_vm_open,
 	.close = drm_gem_vm_close,
 };
@@ -156,6 +156,9 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
         pvdrm = xbdev_to_pvdrm(xbdev);
 
         pvdrm_slots_init(pvdrm);
+
+	idr_init(&pvdrm->h2g);
+        spin_lock_init(&pvdrm->h2g_lock);
 
 	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 
