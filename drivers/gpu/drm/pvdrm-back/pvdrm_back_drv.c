@@ -291,9 +291,9 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	} else if (ret & VM_FAULT_LOCKED) {
 		/* shoudl install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
+	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])), slot->u.ref);
 
-        int* refs;
+        int* refs = NULL;
         ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, &refs);
         if (ret) {
                 BUG();
@@ -312,6 +312,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		}
 		refs[i] = ref;
 	}
+	wmb();
 	// msleep(1000);
 
 	return pages;

@@ -300,8 +300,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct drm_file* file_priv = filp->private_data;
 	struct drm_device* dev = file_priv->minor->dev;
         int count = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
-        struct vma_priv* vma_priv = NULL;
-        struct page* pages = NULL;
+	int pages = 0;
 	const unsigned flags = vma->vm_flags | VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
 	struct drm_pvdrm_gem_mmap req = {
 		.map_handle = vma->vm_pgoff,
@@ -341,7 +340,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_private_data = obj;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
-	drm_gem_object_reference(obj);
+	drm_gem_object_reference(&obj->base);
 
 	drm_gem_vm_open(vma);
 
@@ -351,7 +350,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
         if (ref < 0) {
                 BUG();
         }
-	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", vma->vm_pgoff);
+	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx, ref %d\n", vma->vm_pgoff, ref);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
@@ -362,7 +361,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		ret = slot->ret;
 		pvdrm_slot_free(pvdrm, slot);
 	}
-	printk(KERN_INFO "PVDRM: fault is called with 0x%llx done %d.\n", ret);
+	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx done %d.\n", ret);
 
 	if (ret < 0) {
                 BUG();
@@ -393,7 +392,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
         gnttab_free_grant_reference(ref);
-        free_page(refs);
+        free_page((uintptr_t)refs);
 #endif
 
 
