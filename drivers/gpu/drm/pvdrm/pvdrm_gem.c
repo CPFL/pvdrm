@@ -312,7 +312,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	spin_lock(&pvdrm->mh2obj_lock);
         printk(KERN_INFO "PVDRM: lookup %llx\n", vma->vm_pgoff);
-	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff >> PAGE_SHIFT, &hash)) {
+	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
 		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
 		return -EINVAL;
