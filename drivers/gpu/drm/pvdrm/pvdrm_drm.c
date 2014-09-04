@@ -52,7 +52,7 @@
 #include "pvdrm_nouveau_abi16.h"
 
 static const struct vm_operations_struct pvdrm_gem_vm_ops = {
-	.fault = pvdrm_gem_fault,
+	/* .fault = pvdrm_gem_fault, */
 	.open = drm_gem_vm_open,
 	.close = drm_gem_vm_close,
 };

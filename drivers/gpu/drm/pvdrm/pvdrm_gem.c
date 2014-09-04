@@ -169,8 +169,16 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		.handle = obj->host,
 	};
 	int ret = 0;
+	struct pvdrm_device* pvdrm = NULL;
+
+	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
 	drm_gem_object_release(&obj->base);
+        if (obj->hash.key != -1) {
+		spin_lock(&pvdrm->mh2obj_lock);
+                drm_ht_remove_item(&pvdrm->mh2obj, &obj->hash);
+		spin_unlock(&pvdrm->mh2obj_lock);
+        }
 	kfree(obj);
 }
 
@@ -251,7 +259,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
         spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
 		BUG();
-		return NULL;
+		return;
 	}
 }
 
@@ -351,7 +359,9 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	pages = ret;
 	ret = 0;
+#endif
 
+#if 1
         printk(KERN_INFO "PVDRM: mmap alloc with order %d\n", get_order(vma->vm_end - vma->vm_start));
         for (i = 0; i < count; ++i) {
                 struct page* page = alloc_page(GFP_KERNEL);
@@ -362,9 +372,6 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
                 }
         }
 #endif
-
-	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx\n", (unsigned long long)(vma->vm_pgoff));
-        // return -EINVAL;
 	return ret;
 }
 
