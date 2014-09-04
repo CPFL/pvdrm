@@ -320,9 +320,11 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	obj = drm_hash_entry(hash, struct drm_pvdrm_gem_object, hash);
 	if (!obj) {
+		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
 		return -EINVAL;
 	}
+	spin_unlock(&pvdrm->mh2obj_lock);
 
 	/* FIXME: memory reference. */
 	vma->vm_flags = flags;
