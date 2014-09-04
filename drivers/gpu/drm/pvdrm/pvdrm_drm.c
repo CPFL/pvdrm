@@ -162,6 +162,9 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	}
         spin_lock_init(&pvdrm->mh2obj_lock);
 
+	idr_init(&pvdrm->channels_idr);
+	spin_lock_init(&pvdrm->channels_lock);
+
 	printk(KERN_INFO "PVDRM setting counter-ref.\n");
 
         {

@@ -29,47 +29,81 @@
 #include "../nouveau/nouveau_abi16.h"
 
 #include "pvdrm.h"
+#include "pvdrm_cast.h"
 #include "pvdrm_channel.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_nouveau_abi16.h"
 #include "pvdrm_slot.h"
 
-int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct drm_pvdrm_gem_object** result)
+int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result)
 {
 	struct drm_pvdrm_gem_object *obj;
-	int ret;
+	struct pvdrm_channel *channel;
+	struct pvdrm_device* pvdrm;
+	int ret = 0;
+
+	pvdrm = drm_device_to_pvdrm(dev);
 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, req_out, sizeof(struct drm_nouveau_channel_alloc));
 	if (ret) {
 		return ret;
 	}
 
-	obj = pvdrm_gem_alloc_object(dev, file, req_out->channel, /* FIXME */  PAGE_SIZE);
-	if (obj == NULL) {
+	channel = kzalloc(sizeof(struct pvdrm_channel), GFP_KERNEL);
+	if (!channel)
 		return -ENOMEM;
+
+	channel->host = req_out->channel;
+	kref_init(&channel->ref);
+
+	if (idr_pre_get(&pvdrm->channels_idr, GFP_KERNEL) == 0)
+		return -ENOMEM;
+
+again:
+	spin_lock(&pvdrm->channels_lock);
+	ret = idr_get_new_above(&pvdrm->channels_idr, channel, 1, (int *)&channel->channel);
+	spin_unlock(&pvdrm->channels_lock);
+	if (ret == -EAGAIN) {
+		goto again;
+	} else if (ret) {
+		return ret;
 	}
 
 	/* Adjust gem information for guest environment. */
-	printk(KERN_INFO "PVDRM: Allocating guest channel %d with host %d.\n", obj->handle, obj->host);
-	req_out->channel = obj->handle;
+	printk(KERN_INFO "PVDRM: Allocating guest channel %d with host %d.\n", channel->channel, channel->host);
+	req_out->channel = channel->channel;
 
-	*result = obj;
+	*result = channel;
 	return 0;
 }
 
 int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out)
 {
 	int ret = 0;
-	struct drm_pvdrm_gem_object *obj;
-	obj = pvdrm_gem_object_lookup(dev, file, req_out->channel);
-	if (!obj) {
+	struct pvdrm_channel* channel;
+	struct pvdrm_device* pvdrm;
+
+	pvdrm = drm_device_to_pvdrm(dev);
+
+	spin_lock(&pvdrm->channels_lock);
+	channel = idr_find(&pvdrm->channels_idr, req_out->channel);
+	if (channel == NULL) {
+		spin_unlock(&pvdrm->channels_lock);
 		printk(KERN_INFO "PVDRM: Freeing invalid channel %d.\n", req_out->channel);
 		return -EINVAL;
 	}
-	printk(KERN_INFO "PVDRM: Freeing guest channel %d with host %d.\n", obj->handle, obj->host);
-	req_out->channel = obj->host;
+
+	kref_get(&channel->ref);
+
+	spin_unlock(&pvdrm->channels_lock);
+
+	printk(KERN_INFO "PVDRM: Freeing guest channel %d with host %d.\n", channel->channel, channel->host);
+	req_out->channel = channel->host;
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
-	drm_gem_object_unreference(&obj->base);
+	kref_put(&channel->ref, kfree);
+
+	/* For free. */
+	kref_put(&channel->ref, kfree);
 	return ret;
 }
 

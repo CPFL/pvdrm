@@ -31,7 +31,13 @@
 
 struct drm_nouveau_channel_alloc;
 
-int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct drm_pvdrm_gem_object** result);
+struct pvdrm_channel {
+	struct kref ref;
+	uint32_t channel;
+	uint32_t host;
+};
+
+int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result);
 int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out);
 
 #endif  /* PVDRM_CHANNEL_H_ */

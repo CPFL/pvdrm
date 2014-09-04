@@ -69,8 +69,8 @@ int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struc
 
 int pvdrm_nouveau_abi16_ioctl_channel_alloc(struct drm_device *dev, void *data, struct drm_file *file)
 {
-	struct drm_pvdrm_gem_object* result = NULL;
-	return pvdrm_channel_alloc(dev, file, data, &result);
+	struct pvdrm_channel* channel = NULL;
+	return pvdrm_channel_alloc(dev, file, data, &channel);
 }
 
 int pvdrm_nouveau_abi16_ioctl_channel_free(struct drm_device *dev, void *data, struct drm_file *file)
