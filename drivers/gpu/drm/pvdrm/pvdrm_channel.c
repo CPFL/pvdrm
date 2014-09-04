@@ -37,7 +37,6 @@
 
 int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result)
 {
-	struct drm_pvdrm_gem_object *obj;
 	struct pvdrm_channel *channel;
 	struct pvdrm_device* pvdrm;
 	int ret = 0;

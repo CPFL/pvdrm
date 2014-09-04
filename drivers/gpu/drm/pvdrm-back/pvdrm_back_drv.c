@@ -256,7 +256,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	addr = area->addr;
 	printk(KERN_INFO "PVDRM:allocated area addresss size%lu 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", size, area->addr, area->nr_pages, area->size, info->mapped);
 
-	vma = kzalloc(sizeof(struct vm_area_struct*), GFP_KERNEL);
+	vma = kzalloc(sizeof(struct vm_area_struct), GFP_KERNEL);
 	if (!vma) {
 		BUG();
 	}
@@ -384,7 +384,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 			}
 			drm_gem_object_handle_free(obj);
 			drm_gem_object_free(&obj->refcount);
-			kfree(obj);
+			// kfree(obj);
 			ret = 0;
 		}
 		break;
