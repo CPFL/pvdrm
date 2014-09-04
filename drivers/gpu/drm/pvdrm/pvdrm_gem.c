@@ -382,9 +382,9 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 			BUG();
 		}
 		// const uintptr_t vaddr = get_zeroed_page(GFP_KERNEL);
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / %d / 0x%llx / 0x%llx / 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), ret, pfn_to_mfn(page_to_pfn(extract_page((unsigned long)addr))), addr, virt_to_mfn(addr), virt_to_pfn(addr));
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%llx / 0x%llx\n", i, ret, addr, virt_to_mfn(addr), virt_to_pfn(addr));
                 // msleep(1000);
-		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), page_to_pfn(extract_page((unsigned long)addr)));
+		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(addr));
 		// ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(vaddr));
 		if (ret) {
 			BUG();
