@@ -29,8 +29,10 @@
 
 struct drm_pvdrm_gem_object {
 	struct drm_gem_object base;
+	struct drm_hash_item hash;
 	uint32_t handle;
 	uint32_t host;
+	uint64_t map_handle;
 };
 
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
@@ -41,6 +43,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file);
 int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result);
 struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle);
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, struct drm_file *file, uint32_t host, uint32_t size);
+void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file, struct drm_pvdrm_gem_object* obj, struct drm_nouveau_gem_info* info);
 
 int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 

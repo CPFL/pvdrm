@@ -168,6 +168,9 @@ int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_
 	req->handle = obj->host;
 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
+	if (obj->hash.key == -1) {
+		pvdrm_gem_register_host_info(dev, file, obj, req);
+	}
 
 	req->handle = obj->handle;
 	drm_gem_object_unreference(&obj->base);

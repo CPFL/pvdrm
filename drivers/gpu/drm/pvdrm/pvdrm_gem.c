@@ -213,6 +213,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 	/* Store host information. */
 	obj->handle = (uint32_t)-1;
 	obj->host = host;
+	obj->hash.key = -1;
 
 	/* FIXME: These code are moved from pvdrm_gem_object_new. */
 	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
@@ -233,6 +234,26 @@ free:
 	return NULL;
 }
 
+void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file, struct drm_pvdrm_gem_object* obj, struct drm_nouveau_gem_info* info)
+{
+	struct pvdrm_device* pvdrm = NULL;
+	int ret = 0;
+	pvdrm = drm_device_to_pvdrm(dev);
+	/* Setup mh2obj ht. */
+	/* FIXME: lookup is needed? (for duplicate items) */
+	/* FIXME: release side. */
+	obj->hash.key = info->map_handle;
+	obj->map_handle = info->map_handle;
+
+        spin_lock(&pvdrm->mh2obj_lock);
+	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
+        spin_unlock(&pvdrm->mh2obj_lock);
+	if (ret) {
+		BUG();
+		return NULL;
+	}
+}
+
 int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result)
 {
 	struct drm_pvdrm_gem_object *obj;
@@ -247,6 +268,7 @@ int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct d
 	if (obj == NULL) {
 		return -ENOMEM;
 	}
+	pvdrm_gem_register_host_info(dev, file, obj, &req_out->info);
 
 	/* Adjust gem information for guest environment. */
 	req_out->info.handle = obj->handle;
@@ -270,25 +292,70 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
         int count = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
         struct vma_priv* vma_priv = NULL;
         struct page* pages = NULL;
+	const unsigned flags = vma->vm_flags | VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
+	struct drm_pvdrm_gem_mmap req = {
+		.map_handle = vma->vm_pgoff,
+		.flags = flags,
+		.vm_start = vma->vm_start,
+		.vm_end = vma->vm_end
+	};
+	struct pvdrm_device* pvdrm = NULL;
+	struct drm_hash_item *hash;
+	struct drm_pvdrm_gem_object* obj = NULL;
 
+	pvdrm = drm_device_to_pvdrm(dev);
+
+	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
+		return drm_mmap(filp, vma);
+	}
+
+	spin_lock(&pvdrm->mh2obj_lock);
+	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
+		spin_unlock(&pvdrm->mh2obj_lock);
+		BUG();
+		return -EINVAL;
+	}
+
+	obj = drm_hash_entry(hash, struct drm_pvdrm_gem_object, hash);
+	if (!obj) {
+		BUG();
+		return -EINVAL;
+	}
+
+	/* FIXME: memory reference. */
+	vma->vm_flags = flags;
+	vma->vm_ops = dev->driver->gem_vm_ops;
+	vma->vm_private_data = obj;
+	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+
+#if 0
         vma_priv = kmalloc(sizeof(*vma_priv), GFP_KERNEL);
         if (!vma_priv) {
                 return -ENOMEM;
         }
 
-#if 0
-	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
-		return drm_mmap(filp, vma);
-	}
-#endif
-
         vma_priv->dev = dev;
         vma_priv->map_handle = vma->vm_pgoff;
 
-	vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
-	/* vma->vm_ops = dev->driver->gem_vm_ops; */
-	vma->vm_private_data = vma_priv;
-	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
+	{
+		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
+		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
+		memcpy(pvdrm_slot_payload(slot), &req, sizeof(struct drm_pvdrm_gem_mmap));
+		ret = pvdrm_slot_request(pvdrm, slot);
+		memcpy(&req, pvdrm_slot_payload(slot), sizeof(struct drm_pvdrm_gem_mmap));
+		ret = slot->ret;
+		memcpy(references, slot->u.references, sizeof(pvdrm_slot_references));
+		pvdrm_slot_free(pvdrm, slot);
+	}
+	printk(KERN_INFO "PVDRM: fault is called with 0x%llx done %d.\n", ret);
+
+	if (ret < 0) {
+		goto out;
+	}
+	pages = ret;
+	ret = 0;
+#endif
 
         printk(KERN_INFO "PVDRM: mmap alloc with order %d\n", get_order(vma->vm_end - vma->vm_start));
         for (i = 0; i < count; ++i) {

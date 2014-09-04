@@ -43,8 +43,8 @@ struct pvdrm_device {
 	struct drm_device* dev;
 	struct pvdrm_slots* slots;
 	struct pvdrm_ttm* ttm;
-	struct idr h2g;
-	spinlock_t h2g_lock;
+	struct drm_open_hash mh2obj;
+	spinlock_t mh2obj_lock;
 };
 
 #endif  /* PVDRM_DRM_H_ */
