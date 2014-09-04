@@ -46,6 +46,7 @@
 #include <xen/interface/io/protocols.h>
 
 #include <asm/xen/hypervisor.h>
+#include <asm/xen/hypercall.h>
 
 #include "drmP.h"
 
@@ -223,6 +224,13 @@ destroy_data:
 	return ret;
 }
 
+#if 0
+int do_domctl(struct xen_domctl* domctl)
+{
+	return _hypercall1(int, domctl, domctl);
+}
+#endif
+
 static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	/* Call f_op->mmap operation directly. */
@@ -287,13 +295,18 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	} else if (ret & VM_FAULT_LOCKED) {
 		/* shoudl install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
-	msleep(10000);
+	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])));
+
+	// const uintptr_t vaddr = __get_free_pages(GFP_NOIO | __GFP_HIGH, get_order(size));
+	// const uintptr_t vaddr = __get_free_pages(GFP_KERNEL, get_order(size));
 
 	for (i = 0; i < pages; ++i) {
-		int ref = xenbus_grant_ring(info->xbdev, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
-		printk(KERN_INFO "PVDRM: mmap is done with 0x%u / 0x%llx / 0x%llx\n", ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
-		msleep(10000);
+		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), 0);
+		// int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, virt_to_mfn(vaddr + i * PAGE_SIZE), 0);
+		// int ref = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
+		// printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx / 0x%llx (0x%llx)\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), vaddr + i * PAGE_SIZE, virt_to_mfn(vaddr + i * PAGE_SIZE));
+		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
+		// msleep(1000);
 		if (ref < 0) {
 			/* FIXME: bug... */
 			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
@@ -301,7 +314,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		}
 		slot->u.references[i] = ref;
 	}
-	msleep(10000);
+	// msleep(1000);
 
 	return pages;
 }
@@ -320,7 +333,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	fs = get_fs();
 	set_fs(get_ds());
 	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
-	msleep(10000);
+	// msleep(1000);
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
@@ -382,7 +395,6 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		ret = process_mmap(info, slot);
 		break;
 
-
 	default:
 		printk(KERN_INFO "PVDRM: unhandled slot %d\n", slot->code);
 		break;
@@ -409,7 +421,7 @@ static int thread_main(void *arg)
 	/* Kick state. */
 	printk(KERN_INFO "Starting PVDRM backend thread.\n");
 	xenbus_switch_state(info->xbdev, XenbusStateConnected);
-	printk(KERN_INFO "PVDRM backend thread connected.\n");
+	printk(KERN_INFO "PVDRM backend thread connected with dom%d.\n", info->xbdev->otherend_id);
 
 	{
 		void* addr = NULL;

@@ -103,31 +103,31 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	pages = ret;
 	ret = 0;
 
-	const uintptr_t vaddr = get_zeroed_page(GFP_KERNEL);
-	ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, virt_to_pfn(vaddr));
+	// const uintptr_t vaddr = get_zeroed_page(GFP_KERNEL);
+	// ret = vm_insert_pfn(vma, (unsigned long)vmf->virtual_address, virt_to_pfn(vaddr));
 
-	// printk(KERN_INFO "PVDRM: mapping pages %d\n", pages);
-	// for (i = 0; i < pages; ++i) {
-	// 	/* FIXME: Use gnttab_map_refs. */
-	// 	void* addr = NULL;
-	// 	printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", i, pvdrm_to_xbdev(pvdrm)->otherend_id, references[i]);
-        //         // msleep(2000);
-	// 	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), references[i], &addr);
-	// 	if (ret) {
-        //                 printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
-	// 		/* FIXME: error... */
-	// 		BUG();
-	// 	}
-	// 	const uintptr_t vaddr = get_zeroed_page(GFP_KERNEL);
-	// 	printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / %d / 0x%llx / 0x%llx / 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), ret, pfn_to_mfn(page_to_pfn(extract_page((unsigned long)addr))), addr, virt_to_mfn(addr), virt_to_pfn(addr));
-        //         // msleep(1000);
-	// 	// ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), page_to_pfn(extract_page((unsigned long)addr)));
-	// 	ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(vaddr));
-	// 	if (ret) {
-	// 		BUG();
-	// 	}
-	// }
-        // return VM_FAULT_NOPAGE;
+	printk(KERN_INFO "PVDRM: mapping pages %d\n", pages);
+	for (i = 0; i < pages; ++i) {
+		/* FIXME: Use gnttab_map_refs. */
+		void* addr = NULL;
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", i, pvdrm_to_xbdev(pvdrm)->otherend_id, references[i]);
+                // msleep(2000);
+		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), references[i], &addr);
+		if (ret) {
+                        printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
+			/* FIXME: error... */
+			BUG();
+		}
+		// const uintptr_t vaddr = get_zeroed_page(GFP_KERNEL);
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == 0x%llx / %d / 0x%llx / 0x%llx / 0x%llx / 0x%llx\n", i, page_to_pfn(extract_page((unsigned long)addr)), ret, pfn_to_mfn(page_to_pfn(extract_page((unsigned long)addr))), addr, virt_to_mfn(addr), virt_to_pfn(addr));
+                // msleep(1000);
+		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), page_to_pfn(extract_page((unsigned long)addr)));
+		// ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(vaddr));
+		if (ret) {
+			BUG();
+		}
+	}
+        return VM_FAULT_NOPAGE;
 
 #if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(vma->vm_private_data);
@@ -333,14 +333,6 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
 #if 0
-        vma_priv = kmalloc(sizeof(*vma_priv), GFP_KERNEL);
-        if (!vma_priv) {
-                return -ENOMEM;
-        }
-
-        vma_priv->dev = dev;
-        vma_priv->map_handle = vma->vm_pgoff;
-
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
@@ -359,7 +351,6 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	pages = ret;
 	ret = 0;
-#endif
 
         printk(KERN_INFO "PVDRM: mmap alloc with order %d\n", get_order(vma->vm_end - vma->vm_start));
         for (i = 0; i < count; ++i) {
@@ -370,6 +361,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
                         return ret;
                 }
         }
+#endif
 
 	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx\n", (unsigned long long)(vma->vm_pgoff));
         // return -EINVAL;
