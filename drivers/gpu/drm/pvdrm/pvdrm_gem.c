@@ -171,6 +171,8 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
+	printk(KERN_INFO "PVDRM: freeing GEM %llx.\n", obj->host);
+
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
 	drm_gem_object_release(&obj->base);
@@ -184,6 +186,8 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
+	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
+	printk(KERN_INFO "PVDRM: opening GEM %llx.\n", obj->host);
 	return 0;
 }
 
@@ -339,6 +343,10 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_ops = dev->driver->gem_vm_ops;
 	vma->vm_private_data = obj;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
+
+	drm_gem_object_reference(obj);
+
+	drm_gem_vm_open(vma);
 
 #if 0
 	printk(KERN_INFO "PVDRM: fault is called with 0x%llx\n", map_handle);
