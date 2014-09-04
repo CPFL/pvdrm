@@ -256,7 +256,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	addr = area->addr;
 	printk(KERN_INFO "PVDRM:allocated area addresss size%lu 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", size, area->addr, area->nr_pages, area->size, info->mapped);
 
-	vma = kmalloc(sizeof(*vma), GFP_KERNEL);
+	vma = kzalloc(sizeof(struct vm_area_struct*), GFP_KERNEL);
 	if (!vma) {
 		BUG();
 	}
@@ -275,7 +275,8 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		BUG();
 	}
 
-	vmf.flags = req->flags;
+	/* vmf.flags = req->flags; */
+	vmf.flags = FAULT_FLAG_WRITE;
 	vmf.pgoff = req->map_handle;
 	vmf.virtual_address = addr;
 	do {
@@ -294,10 +295,12 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])), slot->u.ref);
 
         int* refs = NULL;
-        ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, &refs);
+	void* refs_addr = NULL;
+        ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, &refs_addr);
         if (ret) {
                 BUG();
         }
+	refs = (int*)refs_addr;
 	for (i = 0; i < pages; ++i) {
 		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), 0);
 		// int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, virt_to_mfn(vaddr + i * PAGE_SIZE), 0);
@@ -313,6 +316,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		refs[i] = ref;
 	}
 	wmb();
+	xenbus_unmap_ring_vfree(info->xbdev, refs_addr);
 	// msleep(1000);
 
 	return pages;
@@ -332,7 +336,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	fs = get_fs();
 	set_fs(get_ds());
 	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
-	// msleep(1000);
+	msleep(1000);
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
@@ -464,6 +468,7 @@ static int thread_main(void *arg)
 		}
 
 		if (kthread_should_stop()) {
+			printk(KERN_INFO "PVDRM: Thread should stop.\n");
 			break;
 		}
 

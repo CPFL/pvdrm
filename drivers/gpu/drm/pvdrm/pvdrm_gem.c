@@ -361,7 +361,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		ret = slot->ret;
 		pvdrm_slot_free(pvdrm, slot);
 	}
-	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx done %d.\n", ret);
+	printk(KERN_INFO "PVDRM: mmap done %d.\n", ret);
 
 	if (ret < 0) {
                 BUG();
