@@ -237,24 +237,31 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	int i;
 	int ret = 0;
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
-	struct vm_area_struct* vma = NULL;
 	struct vm_fault vmf = { 0 };
-	pte_t* ptes = NULL;
+	pte_t** pteps = NULL;
 	struct vm_struct* area = NULL;
+	struct vm_area_struct* vma = NULL;
 	void* addr = NULL;
 	uint64_t size = 0;
-	grant_ref_t head;
 	uint32_t pages = 0;
 
 	size = (req->vm_end - req->vm_start);
 	pages = size / PAGE_SIZE;
 
-	area = alloc_vm_area(size, &ptes);
+	/* This is limitation since we use granted page to transfer these ids. */
+	if (pages > (PAGE_SIZE / sizeof(int))) {
+		return -EINVAL;
+	}
+
+	pteps = kzalloc((sizeof(pte_t*) * pages) + 1, GFP_KERNEL);
+
+	area = alloc_vm_area(size, pteps);
 	if (!area) {
 		BUG();
 	}
 	addr = area->addr;
 	printk(KERN_INFO "PVDRM:allocated area addresss size%lu 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", size, area->addr, area->nr_pages, area->size, info->mapped);
+	// msleep(2);
 
 	vma = kzalloc(sizeof(struct vm_area_struct), GFP_KERNEL);
 	if (!vma) {
@@ -285,14 +292,14 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 			BUG();
 		}
 	} while (ret & VM_FAULT_RETRY);
-	printk(KERN_INFO "PVDRM: fault with %d.\n", ret);
+	printk(KERN_INFO "PVDRM: fault with %d pages 0x%llx.\n", ret, (uintptr_t)area->pages);
 
 	if (ret & VM_FAULT_NOPAGE) {
 		/* page is installed. */
 	} else if (ret & VM_FAULT_LOCKED) {
 		/* shoudl install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(ptes[0])), slot->u.ref);
+	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(*(pteps[0]))), slot->u.ref);
 
         int* refs = NULL;
 	void* refs_addr = NULL;
@@ -302,11 +309,10 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
         }
 	refs = (int*)refs_addr;
 	for (i = 0; i < pages; ++i) {
-		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), 0);
+		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))), 0);
 		// int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, virt_to_mfn(vaddr + i * PAGE_SIZE), 0);
 		// int ref = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
-		// printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx / 0x%llx (0x%llx)\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))), vaddr + i * PAGE_SIZE, virt_to_mfn(vaddr + i * PAGE_SIZE));
-		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(ptes[i])), pfn_to_mfn(page_to_pfn(pte_page(ptes[i]))));
+		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(*(pteps[i]))), pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))));
 		// msleep(1000);
 		if (ref < 0) {
 			/* FIXME: bug... */
@@ -316,6 +322,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		refs[i] = ref;
 	}
 	wmb();
+	kfree(pteps);
 	xenbus_unmap_ring_vfree(info->xbdev, refs_addr);
 	// msleep(1000);
 	return pages;
