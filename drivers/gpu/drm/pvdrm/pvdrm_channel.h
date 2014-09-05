@@ -39,6 +39,9 @@ struct pvdrm_channel {
 
 int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result);
 int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out);
+struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id);
+void pvdrm_channel_reference(struct pvdrm_channel* chan);
+void pvdrm_channel_unreference(struct pvdrm_channel* chan);
 
 #endif  /* PVDRM_CHANNEL_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
