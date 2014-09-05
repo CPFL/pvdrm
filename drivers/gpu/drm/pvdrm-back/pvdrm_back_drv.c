@@ -347,7 +347,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	fs = get_fs();
 	set_fs(get_ds());
 	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
-	msleep(1000);
+	/* msleep(1000); */
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
