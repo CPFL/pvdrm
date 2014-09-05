@@ -112,6 +112,7 @@ static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* add
 		addr += size;
 		copier->push += slot->u.transfer.nr_push;
 	}
+	printk(KERN_INFO "PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
 
 	return 0;
 }
@@ -137,6 +138,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_buffers && req->buffers) {
 		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
+			printk(KERN_ERR "PVDRM: pushbuf buffers are too large.\n");
 			return -EINVAL;
 		}
 		buffers = kzalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
@@ -148,6 +150,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_relocs && req->relocs) {
 		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
+			printk(KERN_ERR "PVDRM: pushbuf relocs are too large.\n");
 			ret = -EINVAL;
 			goto destroy_data;
 		}
@@ -160,6 +163,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_push && req->push) {
 		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
+			printk(KERN_ERR "PVDRM: pushbuf push are too large.\n");
 			ret = -EINVAL;
 			goto destroy_data;
 		}
@@ -196,7 +200,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 				pvdrm_fence_wait(&slot->__fence, 1, false);
 			}
 		} while (next > 0);
-		printk(KERN_INFO "PVDRM: Copying pushbuf... Done.\n");
+		printk(KERN_INFO "PVDRM: Copying pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", req->nr_buffers, req->nr_relocs, req->nr_push);
 	}
 
 	req->buffers = (unsigned long)buffers;

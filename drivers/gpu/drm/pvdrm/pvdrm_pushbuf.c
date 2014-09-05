@@ -98,6 +98,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 			struct drm_pvdrm_gem_object* obj = NULL;
 			obj = pvdrm_gem_object_lookup(dev, file, handle);
 			if (!obj) {
+				printk(KERN_ERR "PVDRM: pushbuf No valid obj with handle %u.\n", handle);
 				return -EINVAL;
 			}
 			buffers[i].handle = obj->host;
@@ -134,6 +135,8 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 		rest -= size;
 		slot->u.transfer.nr_push = nr;
 	}
+
+	printk(KERN_INFO "PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
 
 	if (!copier->nr_buffers && !copier->nr_relocs && !copier->nr_push) {
 		/* All data is transferred. */
@@ -228,6 +231,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		int next = 0;
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
+		slot->u.transfer.ref = ref;
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 
 		/* Call. */
