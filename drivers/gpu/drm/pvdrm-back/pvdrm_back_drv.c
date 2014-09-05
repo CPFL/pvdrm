@@ -224,16 +224,8 @@ destroy_data:
 	return ret;
 }
 
-#if 0
-int do_domctl(struct xen_domctl* domctl)
-{
-	return _hypercall1(int, domctl, domctl);
-}
-#endif
-
 static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
-	/* Call f_op->mmap operation directly. */
 	int i;
 	int ret = 0;
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
@@ -244,6 +236,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	void* addr = NULL;
 	uint64_t size = 0;
 	uint32_t pages = 0;
+	int* refs = NULL;
 
 	size = (req->vm_end - req->vm_start);
 	pages = size / PAGE_SIZE;
@@ -260,8 +253,11 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		BUG();
 	}
 	addr = area->addr;
-	printk(KERN_INFO "PVDRM:allocated area addresss size%lu 0x%llx, %u, %lu, 0x%llx | 0x%llx.\n", size, area->addr, area->nr_pages, area->size, info->mapped);
-	// msleep(2);
+	printk(KERN_INFO "PVDRM:allocated area addresss size%llu 0x%llx, %u, %lu.\n",
+			(unsigned long long)size,
+			(unsigned long long)area->addr,
+			area->nr_pages,
+			area->size);
 
 	vma = kzalloc(sizeof(struct vm_area_struct), GFP_KERNEL);
 	if (!vma) {
@@ -276,13 +272,14 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
 	vma->vm_pgoff = req->map_handle;
 	vma->vm_file = info->filp;
-	/* get_file(info->filp); */
+	/* Call f_op->mmap operation directly since vm_mmap requires current->mm
+	 * is not NULL.
+	 */
 	ret = info->filp->f_op->mmap(info->filp, vma);
 	if (ret) {
 		BUG();
 	}
 
-	/* vmf.flags = req->flags; */
 	vmf.flags = FAULT_FLAG_WRITE;
 	vmf.pgoff = req->map_handle;
 	vmf.virtual_address = addr;
@@ -292,28 +289,33 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 			BUG();
 		}
 	} while (ret & VM_FAULT_RETRY);
-	printk(KERN_INFO "PVDRM: fault with %d pages 0x%llx.\n", ret, (uintptr_t)area->pages);
+	printk(KERN_INFO "PVDRM: fault with %d pages 0x%llx.\n",
+			ret,
+			(unsigned long long)area->pages);
 
 	if (ret & VM_FAULT_NOPAGE) {
 		/* page is installed. */
 	} else if (ret & VM_FAULT_LOCKED) {
-		/* shoudl install page. */
+		/* FIXME: should install page. */
 	}
-	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long)vmf.virtual_address, page_to_phys(pte_page(*(pteps[0]))), slot->u.ref);
 
-        int* refs = NULL;
-	void* refs_addr = NULL;
-        ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, &refs_addr);
-        if (ret) {
-                BUG();
-        }
-	refs = (int*)refs_addr;
+	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
+			ret,
+			(unsigned long long)vmf.virtual_address,
+			(unsigned long long)page_to_phys(pte_page(*(pteps[0]))),
+			slot->u.ref);
+
+	ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, (void*)&refs);
+	if (ret) {
+		BUG();
+	}
 	for (i = 0; i < pages; ++i) {
 		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))), 0);
-		// int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, virt_to_mfn(vaddr + i * PAGE_SIZE), 0);
-		// int ref = xenbus_grant_ring(info->xbdev, virt_to_mfn(vaddr));
-		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %u / 0x%llx / 0x%llx\n", info->xbdev->otherend_id, ref, page_to_pfn(pte_page(*(pteps[i]))), pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))));
-		// msleep(1000);
+		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %d / 0x%llx / 0x%llx\n",
+				info->xbdev->otherend_id,
+				ref,
+				(unsigned long long)page_to_pfn(pte_page(*(pteps[i]))),
+				(unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))));
 		if (ref < 0) {
 			/* FIXME: bug... */
 			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
@@ -321,18 +323,17 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		}
 		refs[i] = ref;
 	}
-	wmb();
 	kfree(pteps);
-	xenbus_unmap_ring_vfree(info->xbdev, refs_addr);
-	// msleep(1000);
+	wmb();
+	xenbus_unmap_ring_vfree(info->xbdev, (void*)refs);
 	return pages;
 }
 
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int ret;
-        struct drm_file* file_priv = NULL;
-        struct drm_device* dev = NULL;
+	struct drm_file* file_priv = NULL;
+	struct drm_device* dev = NULL;
 	mm_segment_t fs;
 
 	ret = 0;
@@ -439,7 +440,7 @@ static int thread_main(void *arg)
 		if (ret < 0) {
 			xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
 			return ret;
-                }
+		}
 		printk(KERN_INFO "PVDRM: mapping %u.\n", info->ref);
 
 		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
@@ -451,7 +452,7 @@ static int thread_main(void *arg)
 		printk(KERN_INFO "PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[31]));
 	}
 
-        /* Open DRM file. */
+	/* Open DRM file. */
 	{
 		mm_segment_t fs;
 		fs = get_fs();
@@ -461,7 +462,7 @@ static int thread_main(void *arg)
 		set_fs(fs);
 
 		printk(KERN_INFO "PVDRM: Opened drm device.\n");
-        }
+	}
 
 	printk(KERN_INFO "PVDRM: Start main loop.\n");
 	while (true) {
@@ -485,7 +486,7 @@ static int thread_main(void *arg)
 	}
 	printk(KERN_INFO "PVDRM: End main loop.\n");
 
-        /* Close DRM file. */
+	/* Close DRM file. */
 	if (info->filp) {
 		mm_segment_t fs;
 		fs = get_fs();
