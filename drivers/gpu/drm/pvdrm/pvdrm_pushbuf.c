@@ -39,6 +39,7 @@
 #include "../nouveau/nouveau_abi16.h"
 
 #include "pvdrm_cast.h"
+#include "pvdrm_channel.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_nouveau_abi16.h"
 #include "pvdrm_pushbuf.h"
@@ -150,7 +151,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_pushbuf* req_out)
 {
 	struct pvdrm_device* pvdrm;
-	struct drm_pvdrm_gem_object* chan;
+	struct pvdrm_channel* chan;
 	int ret = 0;
 	uint8_t* vaddr = NULL;
 	grant_ref_t ref = -ENOMEM;
@@ -159,7 +160,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 	pvdrm = drm_device_to_pvdrm(dev);
 	xbdev = pvdrm_to_xbdev(pvdrm);
 
-	chan = pvdrm_gem_object_lookup(dev, file, req_out->channel);
+	chan = pvdrm_channel_lookup(dev, req_out->channel);
 	if (!chan) {
 		goto exit;
 	}
@@ -266,7 +267,7 @@ free_page:
 	}
 
 close_channel:
-	drm_gem_object_unreference(&chan->base);
+	pvdrm_channel_unreference(chan);
 
 exit:
 	return ret;
