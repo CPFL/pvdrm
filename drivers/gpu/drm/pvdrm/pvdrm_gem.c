@@ -46,7 +46,7 @@
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
         int ret = 0;
-out:
+/* out: */
 	switch (ret) {
 	case -EIO:
 		return VM_FAULT_SIGBUS;
@@ -78,7 +78,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
-	printk(KERN_INFO "PVDRM: freeing GEM %llx.\n", obj->host);
+	printk(KERN_INFO "PVDRM: freeing GEM %llx.\n", (unsigned long long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -94,7 +94,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	printk(KERN_INFO "PVDRM: opening GEM %llx.\n", obj->host);
+	printk(KERN_INFO "PVDRM: opening GEM %llx.\n", (unsigned long long)obj->host);
 	return 0;
 }
 
@@ -105,14 +105,15 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	struct drm_gem_close req = {
 		.handle = obj->host,
 	};
-	printk(KERN_INFO "PVDRM: closing GEM %llx.\n", obj->host);
 	int ret = 0;
+
+	printk(KERN_INFO "PVDRM: closing GEM %llx.\n", (unsigned long long)obj->host);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file *file, uint32_t host, uint32_t size)
 {
-	int ret;
+	int ret = 0;
 	struct drm_pvdrm_gem_object *obj;
 
 	obj = kzalloc(sizeof(struct drm_pvdrm_gem_object), GFP_KERNEL);
@@ -211,6 +212,8 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct drm_device* dev = file_priv->minor->dev;
 	const int pages = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
 	const unsigned flags = vma->vm_flags | VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
+	int* refs = NULL;
+	int ref;
 	struct drm_pvdrm_gem_mmap req = {
 		.map_handle = vma->vm_pgoff,
 		.flags = flags,
@@ -228,7 +231,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	spin_lock(&pvdrm->mh2obj_lock);
-	printk(KERN_INFO "PVDRM: lookup %llx\n", vma->vm_pgoff);
+	printk(KERN_INFO "PVDRM: lookup %lx\n", vma->vm_pgoff);
 	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
 		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
@@ -253,12 +256,12 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	drm_gem_vm_open(vma);
 
-	int* refs = (int*)get_zeroed_page(GFP_KERNEL);
-	int ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
+	refs = (int*)get_zeroed_page(GFP_KERNEL);
+	ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
 	if (ref < 0) {
 		BUG();
 	}
-	printk(KERN_INFO "PVDRM: mmap is called with 0x%llx, ref %d\n", vma->vm_pgoff, ref);
+	printk(KERN_INFO "PVDRM: mmap is called with 0x%lx, ref %d\n", vma->vm_pgoff, ref);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
@@ -281,14 +284,13 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		/* FIXME: Use gnttab_map_refs. */
 		void* addr = NULL;
 		printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", i, pvdrm_to_xbdev(pvdrm)->otherend_id, refs[i]);
-		// msleep(2000);
 		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), refs[i], &addr);
 		if (ret) {
 			printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
 			/* FIXME: error... */
 			BUG();
 		}
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%llx / 0x%llx\n", i, ret, addr, virt_to_mfn(addr), virt_to_pfn(addr));
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
 		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(addr));
 		if (ret) {
 			BUG();

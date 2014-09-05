@@ -76,8 +76,9 @@ again:
 	return 0;
 }
 
-static void pvdrm_channel_release(struct pvdrm_channel* channel)
+static void pvdrm_channel_release(struct kref* ref)
 {
+	struct pvdrm_channel* channel = container_of(ref, struct pvdrm_channel, ref);
 	printk(KERN_INFO "Deallocating channel %d with host %d.\n", channel->channel, channel->host);
         kfree(channel);
 }

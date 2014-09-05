@@ -139,9 +139,10 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 	return ret;
 }
 
-static void pvdrm_remove(struct xenbus_device *xbdev)
+static int pvdrm_remove(struct xenbus_device *xbdev)
 {
 	drm_xenbus_exit(&pvdrm_drm_driver, xbdev);
+	return 0;
 }
 
 static int pvdrm_connect(struct xenbus_device *xbdev)
