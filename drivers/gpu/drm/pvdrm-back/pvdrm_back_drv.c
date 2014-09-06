@@ -115,11 +115,11 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 		printk(KERN_INFO "PTE[%lu] = %s\n", i, (pte_none(*vma->pteps[i])) ? "none" : "value...");
 	}
 
-	printk(KERN_INFO "PVDRM:allocated area addresss size%llu 0x%llx, %u, %lu.\n",
+	printk(KERN_INFO "PVDRM:allocated area addresss size:(%llu), addr:(0x%llx), pages:(%u), map_handle:(%llu).\n",
 			(unsigned long long)size,
 			(unsigned long long)addr,
 			vma->area->nr_pages,
-			vma->area->size);
+			map_handle);
 
 	vma->base.vm_mm = current->active_mm;
 	vma->base.vm_start = (unsigned long)addr;
@@ -307,7 +307,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_device* info
 	return NULL;
 }
 
-int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int i;
 	int ret = 0;
@@ -499,6 +499,11 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	case PVDRM_GEM_NOUVEAU_GEM_MMAP:
 		/* FIXME: Need to check... */
 		ret = process_mmap(info, slot);
+		break;
+
+	case PVDRM_GEM_NOUVEAU_GEM_FAULT:
+		/* FIXME: Need to check... */
+		ret = process_fault(info, slot);
 		break;
 
 	default:

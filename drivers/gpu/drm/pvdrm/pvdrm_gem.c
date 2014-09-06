@@ -189,13 +189,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	int ret = 0;
 	struct drm_file* file_priv = filp->private_data;
 	struct drm_device* dev = file_priv->minor->dev;
-	const unsigned flags = vma->vm_flags | VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
-	struct drm_pvdrm_gem_mmap req = {
-		.map_handle = vma->vm_pgoff,
-		.flags = flags,
-		.vm_start = vma->vm_start,
-		.vm_end = vma->vm_end
-	};
+	struct drm_pvdrm_gem_mmap req;
 	struct pvdrm_device* pvdrm = NULL;
 	struct drm_hash_item *hash;
 	struct drm_pvdrm_gem_object* obj = NULL;
@@ -223,7 +217,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	spin_unlock(&pvdrm->mh2obj_lock);
 
 	/* FIXME: memory reference. */
-	vma->vm_flags = flags;
+	vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
 	vma->vm_ops = dev->driver->gem_vm_ops;
 	vma->vm_private_data = obj;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
@@ -231,6 +225,13 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	drm_gem_object_reference(&obj->base);
 
 	drm_gem_vm_open(vma);
+
+	req = (struct drm_pvdrm_gem_mmap) {
+		.map_handle = obj->map_handle,
+		.flags = vma->vm_flags,
+		.vm_start = vma->vm_start,
+		.vm_end = vma->vm_end
+	};
 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
 	return ret;
