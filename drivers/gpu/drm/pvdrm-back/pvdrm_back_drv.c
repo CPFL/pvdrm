@@ -127,7 +127,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 	vma->base.vm_flags = flags;
 	vma->base.vm_page_prot = pgprot_writecombine(vm_get_page_prot(flags));
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
-	vma->base.vm_pgoff = map_handle;
+	vma->base.vm_pgoff = map_handle >> PAGE_SHIFT;
 	vma->base.vm_file = info->filp;
 
 	list_add(&vma->next, &info->vmas);
@@ -393,7 +393,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 		}
 		vma->refs[offset] = ref;
 		refs[i] = (struct pvdrm_mapping) {
-			.i = i,
+			.i = offset,
 			.ref = ref
 		};
 		++result;
