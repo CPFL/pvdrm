@@ -63,18 +63,22 @@ struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
 	struct task_struct* thread;
 	struct file* filp;
-
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
+
+	struct list_head vmas;
 };
 
 struct pvdrm_back_vma {
 	struct vm_area_struct base;
+	struct list_head next;
 	struct vm_struct* area;
 	pte_t** pteps;
+	int* refs;
+	uint64_t map_handle;
 };
 
-static struct pvdrm_back_vma* alloc_vma(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle)
+static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle)
 {
 	unsigned long i;
 	unsigned long pages;
@@ -85,17 +89,21 @@ static struct pvdrm_back_vma* alloc_vma(struct pvdrm_back_device* info, uintptr_
 	size = (end - start);
 	pages = size >> PAGE_SHIFT;
 
-	/* This is limitation since we use granted page to transfer these ids. */
-	if (pages > (PAGE_SIZE / sizeof(int))) {
-		printk(KERN_INFO "PVDRM: Too large mmap %llu\n", size);
-		return NULL;
-	}
-
 	vma = kzalloc(sizeof(struct pvdrm_back_vma), GFP_KERNEL);
 	if (!vma) {
 		BUG();
 	}
-	vma->pteps = kzalloc((sizeof(pte_t*) * pages) + 1, GFP_KERNEL);
+
+	vma->map_handle = map_handle;
+	vma->pteps = kzalloc(sizeof(pte_t*) * (pages + 1), GFP_KERNEL);
+	if (!vma->pteps) {
+		BUG();
+	}
+
+	vma->refs = kzalloc(sizeof(int) * (pages + 1), GFP_KERNEL);
+	if (!vma->refs) {
+		BUG();
+	}
 
 	vma->area = alloc_vm_area(size, vma->pteps);
 	if (!vma->area) {
@@ -121,6 +129,8 @@ static struct pvdrm_back_vma* alloc_vma(struct pvdrm_back_device* info, uintptr_
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
 	vma->base.vm_pgoff = map_handle;
 	vma->base.vm_file = info->filp;
+
+	list_add(&vma->next, &info->vmas);
 	return vma;
 }
 
@@ -284,23 +294,122 @@ destroy_data:
 	return ret;
 }
 
+static struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_device* info, uint64_t map_handle)
+{
+	struct list_head *listptr;
+	struct pvdrm_back_vma* vma = NULL;
+	list_for_each(listptr, &info->vmas) {
+		vma = list_entry(listptr, struct pvdrm_back_vma, next);
+		if (vma->map_handle == map_handle) {
+			return vma;
+		}
+	}
+	return NULL;
+}
+
 int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
-	return 0;
+	int i;
+	int ret = 0;
+	int result = 0;
+	uint64_t page_offset = 0;
+	int max;
+	int max_limited_by_vm_end;
+	bool already_faulted = false;
+	struct pvdrm_mapping* refs = NULL;
+	struct drm_pvdrm_gem_fault* req = pvdrm_slot_payload(slot);
+	struct pvdrm_back_vma* vma = NULL;
+	struct vm_fault vmf;
+
+	vma = pvdrm_back_vma_find(info, req->map_handle);
+	if (!vma) {
+		return -EINVAL;
+	}
+
+	page_offset = req->offset >> PAGE_SHIFT;
+	if (!pte_none(*vma->pteps[page_offset])) {
+		already_faulted = true;
+	}
+
+	if (!already_faulted) {
+		vmf = (struct vm_fault) {
+			.flags = req->flags,
+			.pgoff = req->pgoff,
+			.virtual_address = (void*)(vma->base.vm_start + req->offset),
+		};
+
+		do {
+			ret = vma->base.vm_ops->fault(&vma->base, &vmf);
+			if (ret & VM_FAULT_ERROR) {
+				BUG();
+			}
+		} while (ret & VM_FAULT_RETRY);
+
+		if (ret & VM_FAULT_NOPAGE) {
+			/* page is installed. */
+		} else if (ret & VM_FAULT_LOCKED) {
+			/* FIXME: should install page. */
+		}
+	}
+
+	max = 16;  /* FIXME: Temporary value. */
+	max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
+	if (max_limited_by_vm_end < max) {
+		max = max_limited_by_vm_end;
+	}
+	for (i = 0; i < max; ++i) {
+		/* Not mappable page? */
+		if (pte_none(*vma->pteps[page_offset + i])) {
+			break;
+		}
+		/* Already mapped in the quest? */
+		if (vma->refs[page_offset + i] > 0) {
+			break;
+		}
+	}
+	max = i;
+
+	// printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
+	// 		ret,
+	// 		(unsigned long long)vmf.virtual_address,
+	// 		(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
+	// 		req->ref);
+
+	ret = xenbus_map_ring_valloc(info->xbdev, req->ref, (void*)&refs);
+	if (ret) {
+		BUG();
+	}
+	for (i = 0; i < max; ++i) {
+		int offset = page_offset + i;
+		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
+		printk(KERN_INFO "PVDRM: to dom%d mmap is done with %d / 0x%llx\n",
+				info->xbdev->otherend_id,
+				ref,
+				(unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
+		if (ref < 0) {
+			/* FIXME: bug... */
+			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
+			BUG();
+		}
+		vma->refs[offset] = ref;
+		refs[i] = (struct pvdrm_mapping) {
+			.i = i,
+			.ref = ref
+		};
+		++result;
+	}
+	req->mapped_count = result;
+	xenbus_unmap_ring_vfree(info->xbdev, (void*)refs);
+	return ret;
 }
 
 static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
-	int i;
 	int ret = 0;
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
-	struct vm_fault vmf = { 0 };
 	struct pvdrm_back_vma* vma = NULL;
-	void* addr = NULL;
-	uint32_t pages = 0;
-	int* refs = NULL;
 
-	vma = alloc_vma(info, req->vm_start, req->vm_end, req->flags, req->map_handle);
+	vma = pvdrm_back_vma_alloc(info, req->vm_start, req->vm_end, req->flags, req->map_handle);
 	if (!vma) {
 		BUG();
 	}
@@ -313,48 +422,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		return -EINVAL;
 	}
 
-	vmf.flags = FAULT_FLAG_WRITE;
-	vmf.pgoff = req->map_handle;
-	vmf.virtual_address = addr;
-	do {
-		ret = vma->base.vm_ops->fault(&vma->base, &vmf);
-		if (ret & VM_FAULT_ERROR) {
-			BUG();
-		}
-	} while (ret & VM_FAULT_RETRY);
-
-	if (ret & VM_FAULT_NOPAGE) {
-		/* page is installed. */
-	} else if (ret & VM_FAULT_LOCKED) {
-		/* FIXME: should install page. */
-	}
-
-	printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
-			ret,
-			(unsigned long long)vmf.virtual_address,
-			(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
-			slot->u.ref);
-
-	ret = xenbus_map_ring_valloc(info->xbdev, slot->u.ref, (void*)&refs);
-	if (ret) {
-		BUG();
-	}
-	for (i = 0; i < pages; ++i) {
-		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[i])))), 0);
-		// printk(KERN_INFO "PVDRM: to dom%d mmap is done with %d / 0x%llx / 0x%llx\n",
-		// 		info->xbdev->otherend_id,
-		// 		ref,
-		// 		(unsigned long long)page_to_pfn(pte_page(*(pteps[i]))),
-		// 		(unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(pteps[i])))));
-		if (ref < 0) {
-			/* FIXME: bug... */
-			xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
-			BUG();
-		}
-		refs[i] = ref;
-	}
-	xenbus_unmap_ring_vfree(info->xbdev, (void*)refs);
-	return pages;
+	return ret;
 }
 
 static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
@@ -540,6 +608,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	}
 	info->xbdev = xbdev;
 	dev_set_drvdata(&xbdev->dev, info);
+	INIT_LIST_HEAD(&info->vmas);
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {

@@ -32,8 +32,6 @@
 
 #include <xen/grant_table.h>
 #define PVDRM_SLOT_NR 16
-/* FIXME */
-#define PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL 32
 
 #include "drmP.h"
 #include "../nouveau/nouveau_abi16.h"
@@ -63,8 +61,13 @@ enum {
 	PVDRM_GEM_NOUVEAU_GEM_FREE = 12,
 	PVDRM_GEM_NOUVEAU_GEM_OPEN = 13,
 	PVDRM_GEM_NOUVEAU_GEM_CLOSE = 14,
-
 	PVDRM_GEM_NOUVEAU_GEM_MMAP = 15,
+	PVDRM_GEM_NOUVEAU_GEM_FAULT = 16,
+};
+
+struct pvdrm_mapping {
+	int32_t i;
+	int32_t ref;
 };
 
 struct drm_pvdrm_gem_free {
@@ -82,7 +85,14 @@ struct drm_pvdrm_gem_mmap {
 	uint64_t vm_end;
 };
 
-typedef uint32_t pvdrm_slot_references[PVDRM_MMAP_MAX_PAGES_PER_ONE_CALL];
+struct drm_pvdrm_gem_fault {
+	uint64_t flags;
+	uint64_t pgoff;
+	uint64_t offset;
+	uint64_t map_handle;
+	int32_t ref;
+	/* out */ uint64_t mapped_count;
+};
 
 struct pvdrm_slot {
 	/* Headers */
@@ -112,6 +122,7 @@ struct pvdrm_slot {
 		struct drm_gem_close gem_close;
 		struct drm_pvdrm_gem_open gem_open;
 		struct drm_pvdrm_gem_mmap gem_mmap;
+		struct drm_pvdrm_gem_fault gem_fault;
 	};
 
 	// For pushbuf operations.
@@ -123,7 +134,6 @@ struct pvdrm_slot {
 			uint16_t nr_push;
 			uint16_t next;
 		} transfer;
-                int32_t ref;
 	} u;
 };
 

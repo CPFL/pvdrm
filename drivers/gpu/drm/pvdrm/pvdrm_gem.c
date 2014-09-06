@@ -43,26 +43,6 @@
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
-int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
-{
-        int ret = 0;
-/* out: */
-	switch (ret) {
-	case -EIO:
-		return VM_FAULT_SIGBUS;
-	case -EAGAIN:
-		set_need_resched();
-	case 0:
-	case -ERESTARTSYS:
-	case -EINTR:
-		return VM_FAULT_NOPAGE;
-	case -ENOMEM:
-		return VM_FAULT_OOM;
-	default:
-		return VM_FAULT_SIGBUS;
-	}
-}
-
 int pvdrm_gem_object_init(struct drm_gem_object *obj)
 {
 	return 0;
@@ -207,13 +187,9 @@ struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, str
 int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	int ret = 0;
-	int i;
 	struct drm_file* file_priv = filp->private_data;
 	struct drm_device* dev = file_priv->minor->dev;
-	const int pages = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
 	const unsigned flags = vma->vm_flags | VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
-	int* refs = NULL;
-	int ref;
 	struct drm_pvdrm_gem_mmap req = {
 		.map_handle = vma->vm_pgoff,
 		.flags = flags,
@@ -256,62 +232,80 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	drm_gem_vm_open(vma);
 
-	refs = (int*)get_zeroed_page(GFP_KERNEL);
-	ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
-	if (ref < 0) {
-		BUG();
-	}
-	printk(KERN_INFO "PVDRM: mmap is called with 0x%lx, ref %d\n", vma->vm_pgoff, ref);
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
+	return ret;
+}
+
+int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+        int ret = 0;
+	int i;
+	struct pvdrm_mapping* refs = NULL;
+	struct drm_pvdrm_gem_object* obj = vma->vm_private_data;
+	struct drm_device* dev = obj->base.dev;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
+	struct drm_pvdrm_gem_fault req = {
+		.flags = vmf->flags,
+		.pgoff = vmf->pgoff,
+		.offset = (uintptr_t)vmf->virtual_address - vma->vm_start,
+		.map_handle = obj->map_handle,
+		.ref = -EINVAL,
+		.mapped_count = 0xdeadbeef,
+	};
+
 	{
-		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
-		slot->code = PVDRM_GEM_NOUVEAU_GEM_MMAP;
-		slot->u.ref = ref;
-		memcpy(pvdrm_slot_payload(slot), &req, sizeof(struct drm_pvdrm_gem_mmap));
-		ret = pvdrm_slot_request(pvdrm, slot);
-		memcpy(&req, pvdrm_slot_payload(slot), sizeof(struct drm_pvdrm_gem_mmap));
-		ret = slot->ret;
-		pvdrm_slot_free(pvdrm, slot);
+		refs = (struct pvdrm_mapping*)get_zeroed_page(GFP_KERNEL);
+		req.ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
+		if (req.ref < 0) {
+			BUG();
+		}
 	}
-	printk(KERN_INFO "PVDRM: mmap done %d.\n", ret);
+	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, req.ref);
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
+	printk(KERN_INFO "PVDRM: fault is done %d.\n", ret);
 
 	if (ret < 0) {
 		BUG();
 	}
-	ret = 0;
 
-	printk(KERN_INFO "PVDRM: mapping pages %d\n", pages);
-	for (i = 0; i < pages; ++i) {
+	printk(KERN_INFO "PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
+	for (i = 0; i < req.mapped_count; ++i) {
 		/* FIXME: Use gnttab_map_refs. */
 		void* addr = NULL;
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", i, pvdrm_to_xbdev(pvdrm)->otherend_id, refs[i]);
-		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), refs[i], &addr);
+		struct pvdrm_mapping* mapping;
+		mapping = &refs[i];
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
 		if (ret) {
 			printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
 			/* FIXME: error... */
 			BUG();
 		}
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
-		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), virt_to_pfn(addr));
+		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
+		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
 		if (ret) {
 			BUG();
 		}
 	}
 
-	gnttab_free_grant_reference(ref);
+	gnttab_free_grant_reference(req.ref);
 	free_page((uintptr_t)refs);
 
-#if 0
-	printk(KERN_INFO "PVDRM: mmap alloc with order %d\n", get_order(vma->vm_end - vma->vm_start));
-	for (i = 0; i < pages; ++i) {
-		struct page* page = alloc_page(GFP_KERNEL);
-		ret = vm_insert_page(vma, vma->vm_start + i * PAGE_SIZE, page);
-		printk(KERN_INFO "PVDRM: mmap with ret %d\n", ret);
-		if (ret) {
-			return ret;
-		}
+/* out: */
+	switch (ret) {
+	case -EIO:
+		return VM_FAULT_SIGBUS;
+	case -EAGAIN:
+		set_need_resched();
+	case 0:
+	case -ERESTARTSYS:
+	case -EINTR:
+		return VM_FAULT_NOPAGE;
+	case -ENOMEM:
+		return VM_FAULT_OOM;
+	default:
+		return VM_FAULT_SIGBUS;
 	}
-#endif
-	return ret;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */
