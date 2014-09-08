@@ -52,6 +52,8 @@
 
 #include "../pvdrm/pvdrm_slot.h"
 
+#include "xen_added_interface.h"  /* For domctl. */
+
 typedef struct {
 	spinlock_t req_lock;
 	wait_queue_head_t req;
@@ -115,10 +117,9 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 		printk(KERN_INFO "PTE[%lu] = %s\n", i, (pte_none(*vma->pteps[i])) ? "none" : "value...");
 	}
 
-	printk(KERN_INFO "PVDRM:allocated area addresss size:(%llu), addr:(0x%llx), pages:(%u), map_handle:(%llu).\n",
+	printk(KERN_INFO "PVDRM:allocated area addresss size:(%llu), addr:(0x%llx), map_handle:(%llu).\n",
 			(unsigned long long)size,
 			(unsigned long long)addr,
-			vma->area->nr_pages,
 			map_handle);
 
 	vma->base.vm_mm = current->active_mm;
@@ -307,6 +308,26 @@ static struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_device* info
 	return NULL;
 }
 
+static int memory_mapping(
+		struct pvdrm_back_device* info,
+		uint64_t first_gfn,
+		uint64_t first_mfn,
+		uint64_t nr_mfns,
+		bool add_mapping)
+{
+	struct xen_domctl domctl = { 0 };
+
+	domctl.cmd = XEN_DOMCTL_memory_mapping;
+	domctl.domain = info->xbdev->otherend_id;
+	domctl.u.memory_mapping.first_gfn = first_gfn;
+	domctl.u.memory_mapping.first_mfn = first_mfn;
+	domctl.u.memory_mapping.nr_mfns = nr_mfns;
+	domctl.u.memory_mapping.add_mapping = (add_mapping) ? 1 : 0;
+	domctl.interface_version = XEN_DOMCTL_INTERFACE_VERSION;
+
+	return _hypercall1(int, domctl, &domctl);
+}
+
 static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int i;
@@ -327,6 +348,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	}
 
 	page_offset = req->offset >> PAGE_SHIFT;
+	printk(KERN_INFO "Fault.... start with %llu, offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long long)page_offset, (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
 	if (!pte_none(*vma->pteps[page_offset])) {
 		already_faulted = true;
 	}
@@ -337,7 +359,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 			.pgoff = req->pgoff,
 			.virtual_address = (void*)(vma->base.vm_start + req->offset),
 		};
-
+		printk(KERN_INFO "Fault.... start with %llu start!\n", (unsigned long long)page_offset);
 		do {
 			ret = vma->base.vm_ops->fault(&vma->base, &vmf);
 			if (ret & VM_FAULT_ERROR) {
@@ -369,6 +391,8 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	}
 	max = i;
 
+	printk(KERN_INFO "Fault done....\n");
+
 	// printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
 	// 		ret,
 	// 		(unsigned long long)vmf.virtual_address,
@@ -379,6 +403,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	if (ret) {
 		BUG();
 	}
+	printk(KERN_INFO "Fault done2....\n");
 	for (i = 0; i < max; ++i) {
 		int offset = page_offset + i;
 		int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
