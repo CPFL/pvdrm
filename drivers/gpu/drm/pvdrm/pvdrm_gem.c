@@ -62,6 +62,9 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
+
+	/* FIXME: mmap list should be freed. */
+
 	drm_gem_object_release(&obj->base);
 	if (obj->hash.key != -1) {
 		spin_lock(&pvdrm->mh2obj_lock);
@@ -101,6 +104,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 		goto free;
 	}
 
+	/* FIXME: drm_gem_private_object_init is preferable. */
 	if (drm_gem_object_init(dev, &obj->base, size) != 0) {
 		goto free;
 	}
@@ -142,11 +146,13 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	/* Setup mh2obj ht. */
 	/* FIXME: lookup is needed? (for duplicate items) */
 	/* FIXME: release side. */
+	/* FIXME: Use drm_gem_create_mmap_offset instead. */
 	obj->hash.key = info->map_handle >> PAGE_SHIFT;
+	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
 
 	spin_lock(&pvdrm->mh2obj_lock);
-	printk(KERN_INFO "PVDRM: registering %lx / %llx\n", obj->hash.key, info->map_handle);
+	printk(KERN_INFO "PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
 	spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
@@ -230,7 +236,8 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		.map_handle = obj->map_handle,
 		.flags = vma->vm_flags,
 		.vm_start = vma->vm_start,
-		.vm_end = vma->vm_end
+		.vm_end = vma->vm_end,
+		.handle = obj->host,
 	};
 
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));

@@ -83,6 +83,7 @@ struct drm_pvdrm_gem_mmap {
 	unsigned int flags;
 	uint64_t vm_start;
 	uint64_t vm_end;
+	uint32_t handle;
 };
 
 struct drm_pvdrm_gem_fault {

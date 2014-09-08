@@ -71,6 +71,16 @@ struct pvdrm_back_device {
 	struct list_head vmas;
 };
 
+struct drm_file* pvdrm_back_device_to_drm_file(struct pvdrm_back_device* info)
+{
+	return info->filp->private_data;
+}
+
+struct drm_device* pvdrm_back_device_to_drm_device(struct pvdrm_back_device* info)
+{
+	return pvdrm_back_device_to_drm_file(info)->minor->dev;
+}
+
 struct pvdrm_back_vma {
 	struct vm_area_struct base;
 	struct list_head next;
@@ -78,15 +88,28 @@ struct pvdrm_back_vma {
 	pte_t** pteps;
 	int* refs;
 	uint64_t map_handle;
+	uint32_t handle;
 };
 
-static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle)
+static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
 {
 	unsigned long i;
 	unsigned long pages;
 	unsigned long long size;
 	uintptr_t addr;
 	struct pvdrm_back_vma* vma;
+	struct drm_gem_object* obj = NULL;
+	struct drm_file* file_priv = NULL;
+	struct drm_device* dev = NULL;
+
+	file_priv = pvdrm_back_device_to_drm_file(info);
+	dev = pvdrm_back_device_to_drm_device(info);
+
+	obj = drm_gem_object_lookup(dev, file_priv, handle);
+	if (!obj) {
+		return NULL;
+	}
+	drm_gem_object_unreference(obj);
 
 	size = (end - start);
 	pages = size >> PAGE_SHIFT;
@@ -308,12 +331,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_device* info
 	return NULL;
 }
 
-static int memory_mapping(
-		struct pvdrm_back_device* info,
-		uint64_t first_gfn,
-		uint64_t first_mfn,
-		uint64_t nr_mfns,
-		bool add_mapping)
+static int memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping)
 {
 	struct xen_domctl domctl = { 0 };
 
@@ -434,7 +452,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
 	struct pvdrm_back_vma* vma = NULL;
 
-	vma = pvdrm_back_vma_alloc(info, req->vm_start, req->vm_end, req->flags, req->map_handle);
+	vma = pvdrm_back_vma_alloc(info, req->vm_start, req->vm_end, req->flags, req->map_handle, req->handle);
 	if (!vma) {
 		BUG();
 	}
@@ -458,8 +476,8 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	mm_segment_t fs;
 
 	ret = 0;
-	file_priv = info->filp->private_data;
-	dev = file_priv->minor->dev;
+	file_priv = pvdrm_back_device_to_drm_file(info);
+	dev = pvdrm_back_device_to_drm_device(info);
 
 	fs = get_fs();
 	set_fs(get_ds());
