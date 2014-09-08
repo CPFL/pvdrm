@@ -46,11 +46,18 @@
  */
 #ifndef PVDRM_LOG_H_
 #define PVDRM_LOG_H_
+#include "pvdrm_drm.h"
 
 /* Use nouveau's logging macros. */
 #define PVDRM_PRINTK(level, fmt, arg...) \
 	printk(level "[" DRM_NAME "] " DRIVER_NAME ": " fmt, ##arg)
-#define PVDRM_DEBUG(fmt, arg...) PVDRM_PRINTK(KERN_DEBUG, fmt, ##arg)
+
+#if defined(PVDRM_DEBUG_ENABLED)
+	#define PVDRM_DEBUG(fmt, arg...) PVDRM_PRINTK(KERN_DEBUG, fmt, ##arg)
+#else
+	#define PVDRM_DEBUG(fmt, arg...) do { } while (0)
+#endif
+
 #define PVDRM_ERROR(fmt, arg...) PVDRM_PRINTK(KERN_ERR, fmt, ##arg)
 #define PVDRM_INFO(fmt, arg...) PVDRM_PRINTK(KERN_INFO, fmt, ##arg)
 #define PVDRM_TRACEWARN(fmt, arg...) PVDRM_PRINTK(KERN_NOTICE, fmt, ##arg)

@@ -47,6 +47,7 @@
 #include "pvdrm_gem.h"
 #include "pvdrm_irq.h"
 #include "pvdrm_load.h"
+#include "pvdrm_log.h"
 #include "pvdrm_vblank.h"
 
 #include "pvdrm_nouveau_abi16.h"
@@ -119,7 +120,7 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 	/* In this phase, we can swich ioctl implementation to nouveau or other drivers. */
 	int ret = 0;
 
-	printk(KERN_INFO "Proving PVDRM frontend driver.\n");
+	PVDRM_INFO("Proving PVDRM frontend driver.\n");
 
         /* Setup pvdrm driver for "nouveau" */
 	pvdrm_drm_driver.ioctls = pvdrm_nouveau_ioctls;
@@ -132,7 +133,7 @@ static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbu
 		return ret;
 	}
 
-	printk(KERN_INFO "Initialised PVDRM frontend driver.\n");
+	PVDRM_INFO("Initialised PVDRM frontend driver.\n");
 
         xenbus_switch_state(xbdev, XenbusStateInitialised);
 
@@ -152,7 +153,7 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
         ret = 0;
 
-	printk(KERN_INFO "PVDRM CONNECTED.\n");
+	PVDRM_INFO("PVDRM CONNECTED.\n");
 
         pvdrm = xbdev_to_pvdrm(xbdev);
 
@@ -166,7 +167,7 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	idr_init(&pvdrm->channels_idr);
 	spin_lock_init(&pvdrm->channels_lock);
 
-	printk(KERN_INFO "PVDRM setting counter-ref.\n");
+	PVDRM_INFO("PVDRM setting counter-ref.\n");
 
         {
                 struct xenbus_transaction xbt;
@@ -194,14 +195,14 @@ again:
         }
 
 	xenbus_switch_state(xbdev, XenbusStateConnected);
-	printk(KERN_INFO "PVDRM: setting is done.\n");
+	PVDRM_INFO("PVDRM: setting is done.\n");
 
         return 0;
 }
 
 static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backend_state)
 {
-	printk(KERN_INFO "Backend PVDRM driver state changed %s(%s).\n", xenbus_strstate(backend_state), xenbus_strstate(xbdev->state));
+	PVDRM_INFO("Backend PVDRM driver state changed %s(%s).\n", xenbus_strstate(backend_state), xenbus_strstate(xbdev->state));
 
 	switch (backend_state) {
 	case XenbusStateInitialising:
@@ -218,7 +219,7 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 
 	case XenbusStateConnected:
                 /* Connected & Connected. */
-                printk(KERN_INFO "PVDRM: Ok, now connecting.\n");
+                PVDRM_INFO("PVDRM: Ok, now connecting.\n");
 		break;
 
 	case XenbusStateClosing:
@@ -247,7 +248,7 @@ static int __init pvdrm_init(void)
 	if (xen_hvm_domain() && !xen_platform_pci_unplug)
 		return -ENODEV;
 
-	printk(KERN_INFO "Initialising PVDRM driver.\n");
+	PVDRM_INFO("Initialising PVDRM driver.\n");
 
 	return xenbus_register_frontend(&pvdrm_driver);
 }

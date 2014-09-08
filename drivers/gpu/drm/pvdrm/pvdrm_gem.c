@@ -40,6 +40,7 @@
 #include "pvdrm.h"
 #include "pvdrm_cast.h"
 #include "pvdrm_gem.h"
+#include "pvdrm_log.h"
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
@@ -58,7 +59,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
-	printk(KERN_INFO "PVDRM: freeing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("PVDRM: freeing GEM %llx.\n", (unsigned long long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -81,7 +82,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	printk(KERN_INFO "PVDRM: opening GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("PVDRM: opening GEM %llx.\n", (unsigned long long)obj->host);
 	return 0;
 }
 
@@ -94,7 +95,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	};
 	int ret = 0;
 
-	printk(KERN_INFO "PVDRM: closing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("PVDRM: closing GEM %llx.\n", (unsigned long long)obj->host);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 
@@ -161,7 +162,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	}
 
 	spin_lock(&pvdrm->mh2obj_lock);
-	printk(KERN_INFO "PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
+	PVDRM_DEBUG("PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
 	spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
@@ -216,7 +217,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	spin_lock(&pvdrm->mh2obj_lock);
-	printk(KERN_INFO "PVDRM: lookup %lx\n", vma->vm_pgoff);
+	PVDRM_DEBUG("PVDRM: lookup %lx\n", vma->vm_pgoff);
 	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
 		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
@@ -291,15 +292,15 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		BUG();
 	}
 
-	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
+	PVDRM_DEBUG("PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
 	ret = pvdrm_slot_call(pvdrm, slot, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
-	printk(KERN_INFO "PVDRM: fault is done %d.\n", ret);
+	PVDRM_DEBUG("PVDRM: fault is done %d.\n", ret);
 
 	if (ret < 0) {
 		BUG();
 	}
 
-	printk(KERN_INFO "PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
+	PVDRM_DEBUG("PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
 	if (!is_iomem) {
 		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
 		for (i = 0; i < req.mapped_count; ++i) {
@@ -307,14 +308,14 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			void* addr = NULL;
 			struct pvdrm_mapping* mapping;
 			mapping = &refs[i];
-			printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
 			ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
 			if (ret) {
-				printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
+				PVDRM_DEBUG("PVDRM: BUG! %d\n", ret);
 				/* FIXME: error... */
 				BUG();
 			}
-			printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
+			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
 			if (ret) {
 				BUG();

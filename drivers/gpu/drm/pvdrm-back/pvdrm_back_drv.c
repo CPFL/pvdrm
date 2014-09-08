@@ -50,6 +50,7 @@
 
 #include "drmP.h"
 
+#include "../pvdrm/pvdrm_log.h"
 #include "../pvdrm/pvdrm_slot.h"
 
 #include "xen_added_interface.h"  /* For domctl. */
@@ -93,7 +94,6 @@ struct pvdrm_back_vma {
 
 static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
 {
-	unsigned long i;
 	unsigned long pages;
 	unsigned long long size;
 	uintptr_t addr;
@@ -136,14 +136,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 	}
 	addr = (uintptr_t)vma->area->addr;
 
-	for (i = 0; i < pages; ++i) {
-		printk(KERN_INFO "PTE[%lu] = %s\n", i, (pte_none(*vma->pteps[i])) ? "none" : "value...");
-	}
-
-	printk(KERN_INFO "PVDRM:allocated area addresss size:(%llu), addr:(0x%llx), map_handle:(%llu).\n",
-			(unsigned long long)size,
-			(unsigned long long)addr,
-			map_handle);
+	PVDRM_DEBUG("PVDRM:allocated area addresss size:(%llu), addr:(0x%llx), map_handle:(%llu).\n", (unsigned long long)size, (unsigned long long)addr, map_handle);
 
 	vma->base.vm_mm = current->active_mm;
 	vma->base.vm_start = (unsigned long)addr;
@@ -202,7 +195,7 @@ static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* add
 		addr += size;
 		copier->push += slot->u.transfer.nr_push;
 	}
-	printk(KERN_INFO "PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
+	PVDRM_DEBUG("PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
 
 	return 0;
 }
@@ -217,10 +210,10 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
 	void* addr = NULL;
 
-	printk(KERN_INFO "PVDRM: pushbuf with ref %d\n", slot->ref);
+	PVDRM_DEBUG("PVDRM: pushbuf with ref %d\n", slot->ref);
 	if (req->nr_push == 0) {
 		/* OK, there's no buffers. */
-		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
+		PVDRM_DEBUG("PVDRM: pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
@@ -228,7 +221,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_buffers && req->buffers) {
 		if (req->nr_buffers > NOUVEAU_GEM_MAX_BUFFERS) {
-			printk(KERN_ERR "PVDRM: pushbuf buffers are too large.\n");
+			PVDRM_ERROR("PVDRM: pushbuf buffers are too large.\n");
 			return -EINVAL;
 		}
 		buffers = kzalloc(sizeof(struct drm_nouveau_gem_pushbuf_bo) * req->nr_buffers, GFP_KERNEL);
@@ -240,7 +233,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_relocs && req->relocs) {
 		if (req->nr_relocs > NOUVEAU_GEM_MAX_RELOCS) {
-			printk(KERN_ERR "PVDRM: pushbuf relocs are too large.\n");
+			PVDRM_DEBUG("PVDRM: pushbuf relocs are too large.\n");
 			ret = -EINVAL;
 			goto destroy_data;
 		}
@@ -253,7 +246,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 
 	if (req->nr_push && req->push) {
 		if (req->nr_push > NOUVEAU_GEM_MAX_PUSH) {
-			printk(KERN_ERR "PVDRM: pushbuf push are too large.\n");
+			PVDRM_DEBUG("PVDRM: pushbuf push are too large.\n");
 			ret = -EINVAL;
 			goto destroy_data;
 		}
@@ -277,9 +270,9 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			.relocs = relocs,
 			.push = push,
 		};
-		printk(KERN_INFO "PVDRM: Copying pushbufs...\n");
+		PVDRM_DEBUG("PVDRM: Copying pushbufs...\n");
 		do {
-			printk(KERN_INFO "PVDRM: Copy! pushbuf...\n");
+			PVDRM_DEBUG("PVDRM: Copy! pushbuf...\n");
 			ret = transfer(&copier, slot, addr);
 			if (ret) {
 				goto unmap_ref;
@@ -290,7 +283,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 				pvdrm_fence_wait(&slot->__fence, 1, false);
 			}
 		} while (next > 0);
-		printk(KERN_INFO "PVDRM: Copying pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", req->nr_buffers, req->nr_relocs, req->nr_push);
+		PVDRM_DEBUG("PVDRM: Copying pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", req->nr_buffers, req->nr_relocs, req->nr_push);
 	}
 
 	req->buffers = (unsigned long)buffers;
@@ -377,7 +370,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	}
 
 	page_offset = req->offset >> PAGE_SHIFT;
-	printk(KERN_INFO "Fault.... start with %llu, offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long long)page_offset, (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
+	PVDRM_DEBUG("Fault.... start with %llu, offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long long)page_offset, (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
 	if (!pte_none(*vma->pteps[page_offset])) {
 		already_faulted = true;
 	}
@@ -388,7 +381,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 			.pgoff = req->pgoff,
 			.virtual_address = (void*)(vma->base.vm_start + req->offset),
 		};
-		printk(KERN_INFO "Fault.... start with %llu start!\n", (unsigned long long)page_offset);
+		PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
 		do {
 			ret = vma->base.vm_ops->fault(&vma->base, &vmf);
 			if (ret & VM_FAULT_ERROR) {
@@ -421,24 +414,17 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	max = i;
 
 	if (!is_iomem) {
-		printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
-				ret,
-				(unsigned long long)vmf.virtual_address,
-				(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
-				slot->ref);
+		PVDRM_DEBUG("PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
 
 		ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, (void*)&refs);
 		if (ret) {
-			printk(KERN_ERR "PVDRM: ref %d\n", slot->ref);
+			PVDRM_ERROR("PVDRM: ref %d\n", slot->ref);
 			BUG();
 		}
 		for (i = 0; i < max; ++i) {
 			int offset = page_offset + i;
 			int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
-			printk(KERN_INFO "PVDRM: to dom%d mmap is done with %d / 0x%llx\n",
-					info->xbdev->otherend_id,
-					ref,
-					(unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
+			PVDRM_DEBUG("PVDRM: to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
 			if (ref < 0) {
 				/* FIXME: bug... */
 				xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
@@ -496,7 +482,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	fs = get_fs();
 	set_fs(get_ds());
-	printk(KERN_INFO "PVDRM: processing slot %d\n", slot->code);
+	PVDRM_DEBUG("PVDRM: processing slot %d\n", slot->code);
 	/* msleep(1000); */
 
 	/* Processing slot. */
@@ -508,7 +494,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
 		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
-		printk(KERN_INFO "PVDRM: allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
+		PVDRM_DEBUG("PVDRM: allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
@@ -565,7 +551,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 		break;
 
 	default:
-		printk(KERN_INFO "PVDRM: unhandled slot %d\n", slot->code);
+		PVDRM_DEBUG("PVDRM: unhandled slot %d\n", slot->code);
 		break;
 	}
 	set_fs(fs);
@@ -574,7 +560,7 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
-	printk(KERN_INFO "PVDRM: slot %d is done\n", slot->code);
+	PVDRM_DEBUG("PVDRM: slot %d is done\n", slot->code);
 	return ret;
 }
 
@@ -588,9 +574,9 @@ static int thread_main(void *arg)
 	info = arg;
 
 	/* Kick state. */
-	printk(KERN_INFO "Starting PVDRM backend thread.\n");
+	PVDRM_DEBUG("Starting PVDRM backend thread.\n");
 	xenbus_switch_state(info->xbdev, XenbusStateConnected);
-	printk(KERN_INFO "PVDRM backend thread connected with dom%d.\n", info->xbdev->otherend_id);
+	PVDRM_DEBUG("PVDRM backend thread connected with dom%d.\n", info->xbdev->otherend_id);
 
 	{
 		void* addr = NULL;
@@ -600,7 +586,7 @@ static int thread_main(void *arg)
 			xenbus_dev_fatal(info->xbdev, ret, "reading counter-ref");
 			return ret;
 		}
-		printk(KERN_INFO "PVDRM: mapping %u.\n", info->ref);
+		PVDRM_DEBUG("PVDRM: mapping %u.\n", info->ref);
 
 		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
 		if (ret) {
@@ -608,7 +594,7 @@ static int thread_main(void *arg)
 			return ret;
 		}
 		info->mapped = addr;
-		printk(KERN_INFO "PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[31]));
+		PVDRM_DEBUG("PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[31]));
 	}
 
 	/* Open DRM file. */
@@ -620,21 +606,22 @@ static int thread_main(void *arg)
 		info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
 		set_fs(fs);
 
-		printk(KERN_INFO "PVDRM: Opened drm device.\n");
+		PVDRM_INFO("PVDRM: Opened drm device.\n");
 	}
 
-	printk(KERN_INFO "PVDRM: Start main loop.\n");
+	PVDRM_INFO("PVDRM: Start main loop.\n");
 	while (true) {
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
 			/* Sleep. */
 			ktime_t time;
 			__set_current_state(TASK_INTERRUPTIBLE);
-			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+			// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+			time = ktime_set(0, 20);
 			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
 		}
 
 		if (kthread_should_stop()) {
-			printk(KERN_INFO "PVDRM: Thread should stop.\n");
+			PVDRM_INFO("PVDRM: Thread should stop.\n");
 			break;
 		}
 
@@ -643,7 +630,7 @@ static int thread_main(void *arg)
 			process_slot(info, slot);
 		}
 	}
-	printk(KERN_INFO "PVDRM: End main loop.\n");
+	PVDRM_INFO("PVDRM: End main loop.\n");
 
 	/* Close DRM file. */
 	if (info->filp) {
@@ -663,7 +650,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	int ret;
 	struct pvdrm_back_device* info;
 
-	printk(KERN_INFO "Proving PVDRM backend driver %d.\n", xen_pv_domain());
+	PVDRM_INFO("Proving PVDRM backend driver %d.\n", xen_pv_domain());
 
 	info = kzalloc(sizeof(struct pvdrm_back_device), GFP_KERNEL);
 	if (!info) {
@@ -675,7 +662,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {
-		printk(KERN_INFO "PVDRM failed");
+		PVDRM_ERROR("PVDRM failed");
 		return ret;
 	}
 	return 0;
@@ -685,7 +672,7 @@ static int pvdrm_back_remove(struct xenbus_device *xbdev)
 {
 	struct pvdrm_back_device* info = NULL;
 
-	printk(KERN_INFO "Removing PVDRM backend driver.\n");
+	PVDRM_INFO("Removing PVDRM backend driver.\n");
 
 	info = dev_get_drvdata(&xbdev->dev);
 	kfree(info);
@@ -698,16 +685,16 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 	struct pvdrm_back_device* info;
 	int ret = 0;
 
-	printk(KERN_INFO "Frontend changed PVDRM backend driver to state %s.\n", xenbus_strstate(frontend_state));
+	PVDRM_INFO("Frontend changed PVDRM backend driver to state %s.\n", xenbus_strstate(frontend_state));
 
 	info = dev_get_drvdata(&xbdev->dev);
 
-	printk(KERN_INFO "%s", xenbus_strstate(frontend_state));
+	PVDRM_INFO("%s", xenbus_strstate(frontend_state));
 
 	switch (frontend_state) {
 	case XenbusStateInitialising:
 		if (xbdev->state == XenbusStateClosed) {
-			printk(KERN_INFO "PVDRM xenbus is closed...\n");
+			PVDRM_INFO("PVDRM xenbus is closed...\n");
 			xenbus_switch_state(xbdev, XenbusStateInitWait);
 		}
 		break;
@@ -787,7 +774,7 @@ static int __init pvdrm_back_init(void)
 	spin_lock_init(&pvdrm_back_core->req_lock);
 	init_waitqueue_head(&pvdrm_back_core->req);
 
-	printk(KERN_INFO "Initialising PVDRM backend driver.\n");
+	PVDRM_INFO("Initialising PVDRM backend driver.\n");
 
 	return xenbus_register_backend(&pvdrm_back_driver);
 }

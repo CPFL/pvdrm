@@ -25,6 +25,7 @@
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_load.h"
+#include "pvdrm_log.h"
 #include "pvdrm_slot.h"
 
 static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
@@ -51,7 +52,7 @@ int pvdrm_load(struct drm_device *dev, unsigned long flags)
 	if (ret)
 		goto out;
 
-        printk(KERN_INFO "PVDRM: loaded.\n");
+        PVDRM_INFO("PVDRM: loaded.\n");
 out:
 	if (ret)
 		pvdrm_unload(dev);
