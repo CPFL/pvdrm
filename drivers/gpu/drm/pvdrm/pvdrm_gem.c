@@ -263,13 +263,14 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct drm_device* dev = obj->base.dev;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	uint64_t backing = 0;
+	uint64_t nr_pages = (obj->base.size >> PAGE_SHIFT);
 	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
 	bool is_iomem = obj->domain & NOUVEAU_GEM_DOMAIN_VRAM;
 	struct drm_pvdrm_gem_fault req;
 	struct pvdrm_slot* slot = NULL;
 
 	if (is_iomem) {
-		backing = virt_to_pfn(obj->backing) + (offset >> PAGE_SHIFT);
+		backing = virt_to_pfn(obj->backing);
 	}
 
 	req = (struct drm_pvdrm_gem_fault) {
@@ -280,7 +281,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		.mapped_count = 0xdeadbeef,
 		.domain = obj->domain,
 		.backing = backing,
-		.nr_pages = (obj->base.size >> PAGE_SHIFT) - (offset >> PAGE_SHIFT),
+		.nr_pages = nr_pages,
 	};
 
 	slot = pvdrm_slot_alloc(pvdrm);
@@ -298,42 +299,42 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	PVDRM_DEBUG("PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
 	if (!is_iomem) {
-		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
+		int32_t* refs = (int32_t*)slot->addr;
 
 		/* FIXME: unmap and free pages. */
-		struct page* pages[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
-		struct gnttab_map_grant_ref map[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
-		ret = alloc_xenballooned_pages(req.mapped_count, pages, false /* lowmem */);
+		struct page* pages[nr_pages];
+		struct gnttab_map_grant_ref map[nr_pages];
+		ret = alloc_xenballooned_pages(nr_pages, pages, false /* lowmem */);
 		if (ret) {
 			BUG();
 		}
-		for (i = 0; i < req.mapped_count; ++i) {
+		for (i = 0; i < nr_pages; ++i) {
 			uint32_t flags = GNTMAP_host_map;
-			struct pvdrm_mapping* mapping = &refs[i];
+			int32_t ref = refs[i];
 			void* addr = pfn_to_kaddr(page_to_pfn(pages[i]));
-			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
-			gnttab_set_map_op(&map[i], (unsigned long)addr, flags, mapping->ref, pvdrm_to_xbdev(pvdrm)->otherend_id);
+			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+			gnttab_set_map_op(&map[i], (unsigned long)addr, flags, ref, pvdrm_to_xbdev(pvdrm)->otherend_id);
 		}
 
-		ret = gnttab_map_refs(map, NULL, pages, req.mapped_count);
+		ret = gnttab_map_refs(map, NULL, pages, nr_pages);
 		if (ret) {
 			PVDRM_ERROR("error with %d\n", ret);
 			BUG();
 		}
 
-		for (i = 0; i < req.mapped_count; ++i) {
-			struct pvdrm_mapping* mapping = &refs[i];
+		for (i = 0; i < nr_pages; ++i) {
+			int32_t ref = refs[i];
 			unsigned long pfn = page_to_pfn(pages[i]);
-			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == pfn:(0x%lx)\n", mapping->i, pfn);
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
+			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == pfn:(0x%lx)\n", i, pfn);
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), pfn);
 			if (ret) {
 				BUG();
 			}
 		}
 	} else {
 		/* FIXME: Xen now put errors. */
-		for (i = 0; i < req.mapped_count; ++i) {
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
+		for (i = 0; i < nr_pages; ++i) {
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * i), backing + i);
 		}
 	}
 
