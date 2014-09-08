@@ -31,6 +31,7 @@
 #include <xen/xenbus_dev.h>
 #include <xen/grant_table.h>
 #include <xen/events.h>
+#include <xen/balloon.h>
 #include <asm/xen/hypervisor.h>
 
 #include "drmP.h"
@@ -303,24 +304,55 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	PVDRM_DEBUG("PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
 	if (!is_iomem) {
 		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
+
+		/* FIXME: unmap and free pages. */
+		struct page* pages[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
+		struct gnttab_map_grant_ref map[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
+		ret = alloc_xenballooned_pages(req.mapped_count, pages, false /* lowmem */);
+		if (ret) {
+			BUG();
+		}
 		for (i = 0; i < req.mapped_count; ++i) {
-			/* FIXME: Use gnttab_map_refs. */
-			void* addr = NULL;
-			struct pvdrm_mapping* mapping;
-			mapping = &refs[i];
+			uint32_t flags = GNTMAP_host_map;
+			struct pvdrm_mapping* mapping = &refs[i];
+			void* addr = pfn_to_kaddr(page_to_pfn(pages[i]));
 			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
-			ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
-			if (ret) {
-				PVDRM_DEBUG("PVDRM: BUG! %d\n", ret);
-				/* FIXME: error... */
-				BUG();
-			}
-			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
+			gnttab_set_map_op(&map[i], (unsigned long)addr, flags, mapping->ref, pvdrm_to_xbdev(pvdrm)->otherend_id);
+		}
+
+		ret = gnttab_map_refs(map, NULL, pages, req.mapped_count);
+		if (ret) {
+			BUG();
+		}
+
+		for (i = 0; i < req.mapped_count; ++i) {
+			struct pvdrm_mapping* mapping = &refs[i];
+			// void* addr = pfn_to_kaddr(page_to_pfn(pages[i]));
+			// PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), page_to_pfn(pages[i]));
 			if (ret) {
 				BUG();
 			}
 		}
+
+		// for (i = 0; i < req.mapped_count; ++i) {
+		// 	/* FIXME: Use gnttab_map_refs. */
+		// 	void* addr = NULL;
+		// 	struct pvdrm_mapping* mapping;
+		// 	mapping = &refs[i];
+		// 	PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+		// 	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
+		// 	if (ret) {
+		// 		PVDRM_DEBUG("PVDRM: BUG! %d\n", ret);
+		// 		/* FIXME: error... */
+		// 		BUG();
+		// 	}
+		// 	PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
+		// 	ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
+		// 	if (ret) {
+		// 		BUG();
+		// 	}
+		// }
 	} else {
 		for (i = 0; i < req.mapped_count; ++i) {
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
