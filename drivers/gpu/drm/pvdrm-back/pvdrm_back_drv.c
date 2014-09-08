@@ -346,14 +346,24 @@ static int memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, ui
 	return _hypercall1(int, domctl, &domctl);
 }
 
+static inline uint32_max(uint32_t a, uint32_t b)
+{
+	return (a > b) ? a : b;
+}
+
+static inline uint32_min(uint32_t a, uint32_t b)
+{
+	return (a > b) ? b : a;
+}
+
 static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	int i;
 	int ret = 0;
 	int result = 0;
 	uint64_t page_offset = 0;
-	int max;
-	int max_limited_by_vm_end;
+	uint32_t max;
+	uint32_t max_limited_by_vm_end;
 	bool already_faulted = false;
 	struct pvdrm_mapping* refs = NULL;
 	struct drm_pvdrm_gem_fault* req = pvdrm_slot_payload(slot);
@@ -393,24 +403,25 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 		}
 	}
 
-	if (!is_iomem) {
-		max = 16;  /* FIXME: Temporary value. */
-		max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
-		if (max_limited_by_vm_end < max) {
-			max = max_limited_by_vm_end;
-		}
-		for (i = 0; i < max; ++i) {
-			/* Not mappable page? */
-			if (pte_none(*vma->pteps[page_offset + i])) {
-				break;
-			}
-			/* Already mapped in the quest? */
-			if (vma->refs[page_offset + i] > 0) {
-				break;
-			}
-		}
-		max = i;
+	max = 16;  /* FIXME: Temporary value. */
 
+	max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
+	max = min(max_limited_by_vm_end, max);
+	max = min(req->nr_pages, max);
+
+	for (i = 0; i < max; ++i) {
+		/* Not mappable page? */
+		if (pte_none(*vma->pteps[page_offset + i])) {
+			break;
+		}
+		/* Already mapped in the quest? */
+		if (vma->refs[page_offset + i] > 0) {
+			break;
+		}
+	}
+	max = i;
+
+	if (!is_iomem) {
 		// printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
 		// 		ret,
 		// 		(unsigned long long)vmf.virtual_address,
@@ -444,7 +455,8 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 		xenbus_unmap_ring_vfree(info->xbdev, (void*)refs);
 	} else {
 		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
-		ret = memory_mapping(info, req->backing, mfn, 1, true);
+		ret = memory_mapping(info, req->backing, mfn, max, true);
+		req->mapped_count = max;
 	}
 	return ret;
 }

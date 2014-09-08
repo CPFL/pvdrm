@@ -264,6 +264,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	uint64_t backing = 0;
 	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
 	bool is_iomem = obj->domain & NOUVEAU_GEM_DOMAIN_VRAM;
+	uint32_t nr_pages = 0;
 	struct drm_pvdrm_gem_fault req;
 
 	if (is_iomem) {
@@ -279,6 +280,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		.mapped_count = 0xdeadbeef,
 		.domain = obj->domain,
 		.backing = backing,
+		.nr_pages = (obj->base.size >> PAGE_SHIFT) - (offset >> PAGE_SHIFT),
 	};
 
 	if (!is_iomem) {
@@ -318,7 +320,9 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			}
 		}
 	} else {
-		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset, backing);
+		for (i = 0; i < req.mapped_count; ++i) {
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
+		}
 	}
 
 	if (!is_iomem) {
