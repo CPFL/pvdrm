@@ -91,6 +91,8 @@ struct drm_pvdrm_gem_fault {
 	uint64_t pgoff;
 	uint64_t offset;
 	uint64_t map_handle;
+	uint64_t backing;
+	uint32_t domain;
 	int32_t ref;
 	/* out */ uint64_t mapped_count;
 };

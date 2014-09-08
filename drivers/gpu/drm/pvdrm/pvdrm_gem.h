@@ -34,6 +34,7 @@ struct drm_pvdrm_gem_object {
 	uint32_t host;
 	uint32_t domain;
 	uint64_t map_handle;
+	unsigned long backing;  /* Backing stone for VRAM mapping. */
 };
 
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);

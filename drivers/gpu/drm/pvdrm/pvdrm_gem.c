@@ -66,6 +66,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	/* FIXME: mmap list should be freed. */
 
 	drm_gem_object_release(&obj->base);
+	if (obj->backing) {
+		free_pages(obj->backing, obj->base.size);
+		obj->backing = 0;
+	}
 	if (obj->hash.key != -1) {
 		spin_lock(&pvdrm->mh2obj_lock);
 		drm_ht_remove_item(&pvdrm->mh2obj, &obj->hash);
@@ -151,8 +155,13 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
 
+	/* This gem is iomem. */
+	if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
+		obj->backing = __get_free_pages(GFP_KERNEL, get_order(obj->base.size));
+	}
+
 	spin_lock(&pvdrm->mh2obj_lock);
-	printk(KERN_INFO "PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, info->domain);
+	printk(KERN_INFO "PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
 	spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
@@ -252,22 +261,34 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct drm_pvdrm_gem_object* obj = vma->vm_private_data;
 	struct drm_device* dev = obj->base.dev;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
-	struct drm_pvdrm_gem_fault req = {
+	uint64_t backing = 0;
+	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
+	bool is_iomem = obj->domain & NOUVEAU_GEM_DOMAIN_VRAM;
+	struct drm_pvdrm_gem_fault req;
+
+	if (is_iomem) {
+		backing = virt_to_pfn(obj->backing) + (offset >> PAGE_SHIFT);
+	}
+
+	req = (struct drm_pvdrm_gem_fault) {
 		.flags = vmf->flags,
 		.pgoff = vmf->pgoff,
-		.offset = (uintptr_t)vmf->virtual_address - vma->vm_start,
+		.offset = offset,
 		.map_handle = obj->map_handle,
 		.ref = -EINVAL,
 		.mapped_count = 0xdeadbeef,
+		.domain = obj->domain,
+		.backing = backing,
 	};
 
-	{
+	if (!is_iomem) {
 		refs = (struct pvdrm_mapping*)get_zeroed_page(GFP_KERNEL);
 		req.ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
 		if (req.ref < 0) {
 			BUG();
 		}
 	}
+
 	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, req.ref);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
 	printk(KERN_INFO "PVDRM: fault is done %d.\n", ret);
@@ -277,27 +298,33 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	}
 
 	printk(KERN_INFO "PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
-	for (i = 0; i < req.mapped_count; ++i) {
-		/* FIXME: Use gnttab_map_refs. */
-		void* addr = NULL;
-		struct pvdrm_mapping* mapping;
-		mapping = &refs[i];
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
-		ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
-		if (ret) {
-			printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
-			/* FIXME: error... */
-			BUG();
+	if (!is_iomem) {
+		for (i = 0; i < req.mapped_count; ++i) {
+			/* FIXME: Use gnttab_map_refs. */
+			void* addr = NULL;
+			struct pvdrm_mapping* mapping;
+			mapping = &refs[i];
+			printk(KERN_INFO "PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+			ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
+			if (ret) {
+				printk(KERN_INFO "PVDRM: BUG! %d\n", ret);
+				/* FIXME: error... */
+				BUG();
+			}
+			printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
+			if (ret) {
+				BUG();
+			}
 		}
-		printk(KERN_INFO "PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
-		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
-		if (ret) {
-			BUG();
-		}
+	} else {
+		ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset, backing);
 	}
 
-	gnttab_free_grant_reference(req.ref);
-	free_page((uintptr_t)refs);
+	if (!is_iomem) {
+		gnttab_free_grant_reference(req.ref);
+		free_page((uintptr_t)refs);
+	}
 
 /* out: */
 	switch (ret) {
