@@ -257,7 +257,6 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
         int ret = 0;
 	int i;
-	struct pvdrm_mapping* refs = NULL;
 	struct drm_pvdrm_gem_object* obj = vma->vm_private_data;
 	struct drm_device* dev = obj->base.dev;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
@@ -286,14 +285,14 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	if (!slot) {
 		BUG();
 	}
+
 	ret = pvdrm_slot_ensure_ref(pvdrm, slot);
 	if (ret) {
 		BUG();
 	}
-	refs = (struct pvdrm_mapping*)slot->addr;
 
 	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
+	ret = pvdrm_slot_call(pvdrm, slot, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
 	printk(KERN_INFO "PVDRM: fault is done %d.\n", ret);
 
 	if (ret < 0) {
@@ -302,6 +301,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	printk(KERN_INFO "PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
 	if (!is_iomem) {
+		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
 		for (i = 0; i < req.mapped_count; ++i) {
 			/* FIXME: Use gnttab_map_refs. */
 			void* addr = NULL;
@@ -325,6 +325,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
 		}
 	}
+
+	pvdrm_slot_free(pvdrm, slot);
 
 /* out: */
 	switch (ret) {

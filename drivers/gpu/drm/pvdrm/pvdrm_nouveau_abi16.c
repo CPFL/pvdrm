@@ -48,10 +48,7 @@ int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size
 	pvdrm = drm_device_to_pvdrm(dev);
 	{
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
-		slot->code = (code);
-		memcpy(pvdrm_slot_payload(slot), data, size);
-		ret = pvdrm_slot_request(pvdrm, slot);
-		memcpy(data, pvdrm_slot_payload(slot), size);
+		ret = pvdrm_slot_call(pvdrm, slot, code, data, size);
 		pvdrm_slot_free(pvdrm, slot);
 	}
 	return ret;

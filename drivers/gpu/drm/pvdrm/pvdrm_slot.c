@@ -243,4 +243,14 @@ int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
 	return 0;
 }
 
+int pvdrm_slot_call(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, int code, void *data, size_t size)
+{
+	int ret;
+	slot->code = (code);
+	memcpy(pvdrm_slot_payload(slot), data, size);
+	ret = pvdrm_slot_request(pvdrm, slot);
+	memcpy(data, pvdrm_slot_payload(slot), size);
+	return ret;
+}
+
 /* vim: set sw=8 ts=8 et tw=80 : */

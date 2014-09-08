@@ -422,14 +422,15 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	max = i;
 
 	if (!is_iomem) {
-		// printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
-		// 		ret,
-		// 		(unsigned long long)vmf.virtual_address,
-		// 		(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
-		// 		slot->ref);
+		printk(KERN_INFO "PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n",
+				ret,
+				(unsigned long long)vmf.virtual_address,
+				(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
+				slot->ref);
 
 		ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, (void*)&refs);
 		if (ret) {
+			printk(KERN_ERR "PVDRM: ref %d\n", slot->ref);
 			BUG();
 		}
 		for (i = 0; i < max; ++i) {
