@@ -322,38 +322,21 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 		ret = gnttab_map_refs(map, NULL, pages, req.mapped_count);
 		if (ret) {
+			PVDRM_ERROR("error with %d\n", ret);
 			BUG();
 		}
 
 		for (i = 0; i < req.mapped_count; ++i) {
 			struct pvdrm_mapping* mapping = &refs[i];
-			// void* addr = pfn_to_kaddr(page_to_pfn(pages[i]));
-			// PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), page_to_pfn(pages[i]));
+			unsigned long pfn = page_to_pfn(pages[i]);
+			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == pfn:(0x%lx)\n", mapping->i, pfn);
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
 			if (ret) {
 				BUG();
 			}
 		}
-
-		// for (i = 0; i < req.mapped_count; ++i) {
-		// 	/* FIXME: Use gnttab_map_refs. */
-		// 	void* addr = NULL;
-		// 	struct pvdrm_mapping* mapping;
-		// 	mapping = &refs[i];
-		// 	PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
-		// 	ret = xenbus_map_ring_valloc(pvdrm_to_xbdev(pvdrm), mapping->ref, &addr);
-		// 	if (ret) {
-		// 		PVDRM_DEBUG("PVDRM: BUG! %d\n", ret);
-		// 		/* FIXME: error... */
-		// 		BUG();
-		// 	}
-		// 	PVDRM_DEBUG("PVDRM: mapping pages page[%d] == %d / 0x%llx / 0x%lx / 0x%lx\n", mapping->i, ret, (unsigned long long)addr, virt_to_mfn(addr), virt_to_pfn(addr));
-		// 	ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), virt_to_pfn(addr));
-		// 	if (ret) {
-		// 		BUG();
-		// 	}
-		// }
 	} else {
+		/* FIXME: Xen now put errors. */
 		for (i = 0; i < req.mapped_count; ++i) {
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
 		}
