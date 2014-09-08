@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2014 Yusuke Suzuki <utatane.tea@gmail.com>
+  Copyright (C) 2014 Yusuke Suzuki <yusuke.suzuki@sslab.ics.keio.ac.jp>
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
