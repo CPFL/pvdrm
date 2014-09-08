@@ -87,6 +87,7 @@ struct drm_pvdrm_gem_mmap {
 };
 
 struct drm_pvdrm_gem_fault {
+#define PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL 32
 	uint64_t flags;
 	uint64_t pgoff;
 	uint64_t offset;

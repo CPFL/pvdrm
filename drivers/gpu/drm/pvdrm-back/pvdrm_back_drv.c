@@ -403,8 +403,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 		}
 	}
 
-	max = 16;  /* FIXME: Temporary value. */
-
+	max = PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL;
 	max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
 	max = min(max_limited_by_vm_end, max);
 	max = min(req->nr_pages, max);
