@@ -177,7 +177,6 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_t seq);
-int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 
 /* More useful interface. */
 int pvdrm_slot_call(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, int code, void *data, size_t size);

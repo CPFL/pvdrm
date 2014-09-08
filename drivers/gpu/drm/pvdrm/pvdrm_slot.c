@@ -45,6 +45,37 @@ static bool is_used(struct pvdrm_slot* slot)
         return slot->code != PVDRM_UNUSED;
 }
 
+static int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
+{
+	int ret = 0;
+	uintptr_t addr = 0;
+	struct xenbus_device* xbdev = pvdrm_to_xbdev(pvdrm);
+
+	if (slot->ref >= 0) {
+		return 0;
+	}
+
+	/* Allocate ref. */
+	addr = get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+	if (!addr) {
+		ret = -ENOMEM;
+		xenbus_dev_fatal(xbdev, ret, "allocating ring page");
+		return ret;
+	}
+
+	ret = xenbus_grant_ring(xbdev, virt_to_mfn(addr));
+	if (ret < 0) {
+		xenbus_dev_fatal(xbdev, ret, "granting ring page");
+		free_page(addr);
+		return ret;
+	}
+
+	slot->ref = ret;
+	slot->addr = (void*)addr;
+
+	return 0;
+}
+
 int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 {
 	int i;
@@ -110,6 +141,10 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
                 slot->code = PVDRM_UNUSED;
 		slot->ref = -EINVAL;
                 mapped->ring[i] = (uint8_t)-1;
+		ret = pvdrm_slot_ensure_ref(pvdrm, slot);
+		if (ret) {
+			BUG();
+		}
 	}
         wmb();
 
@@ -211,37 +246,6 @@ void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slo
         mapped->ring[pos] = pvdrm_slot_id(mapped, slot);
 	wmb();
 	atomic_inc(&mapped->count);
-}
-
-int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
-{
-	int ret = 0;
-	uintptr_t addr = 0;
-	struct xenbus_device* xbdev = pvdrm_to_xbdev(pvdrm);
-
-	if (slot->ref >= 0) {
-		return 0;
-	}
-
-	/* Allocate ref. */
-	addr = get_zeroed_page(GFP_NOIO | __GFP_HIGH);
-	if (!addr) {
-		ret = -ENOMEM;
-		xenbus_dev_fatal(xbdev, ret, "allocating ring page");
-		return ret;
-	}
-
-	ret = xenbus_grant_ring(xbdev, virt_to_mfn(addr));
-	if (ret < 0) {
-		xenbus_dev_fatal(xbdev, ret, "granting ring page");
-		free_page(addr);
-		return ret;
-	}
-
-	slot->ref = ret;
-	slot->addr = (void*)addr;
-
-	return 0;
 }
 
 int pvdrm_slot_call(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, int code, void *data, size_t size)

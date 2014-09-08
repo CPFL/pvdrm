@@ -68,7 +68,7 @@ struct pvdrm_back_device {
 	struct file* filp;
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
-
+	void* slot_addrs[PVDRM_SLOT_NR];
 	struct list_head vmas;
 };
 
@@ -91,6 +91,11 @@ struct pvdrm_back_vma {
 	uint64_t map_handle;
 	uint32_t handle;
 };
+
+static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+{
+	return info->slot_addrs[pvdrm_slot_id(info->mapped, slot)];
+}
 
 static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
 {
@@ -208,7 +213,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_bo* buffers = NULL;
 	struct drm_nouveau_gem_pushbuf_reloc* relocs = NULL;
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
-	void* addr = NULL;
+	void* addr = pvdrm_back_slot_addr(info, slot);
 
 	PVDRM_DEBUG("PVDRM: pushbuf with ref %d\n", slot->ref);
 	if (req->nr_push == 0) {
@@ -257,11 +262,6 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		}
 	}
 
-	ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, &addr);
-	if (ret) {
-		goto destroy_data;
-	}
-
 	/* Copying data to the host side. */
 	{
 		int next = 0;
@@ -275,7 +275,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 			PVDRM_DEBUG("PVDRM: Copy! pushbuf...\n");
 			ret = transfer(&copier, slot, addr);
 			if (ret) {
-				goto unmap_ref;
+				goto destroy_data;
 			}
 			next = slot->u.transfer.next;
 			if (next > 0) {
@@ -291,11 +291,6 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	req->push = (unsigned long)push;
 
 	ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
-
-unmap_ref:
-	if (addr) {
-		xenbus_unmap_ring_vfree(info->xbdev, addr);
-	}
 
 destroy_data:
 	if (buffers) {
@@ -416,11 +411,8 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	if (!is_iomem) {
 		PVDRM_DEBUG("PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
 
-		ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, (void*)&refs);
-		if (ret) {
-			PVDRM_ERROR("PVDRM: ref %d\n", slot->ref);
-			BUG();
-		}
+		/* FIXME: This should be removed for optimizations. */
+		refs = pvdrm_back_slot_addr(info, slot);
 		for (i = 0; i < max; ++i) {
 			int offset = page_offset + i;
 			int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
@@ -438,7 +430,6 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 			++result;
 		}
 		req->mapped_count = result;
-		xenbus_unmap_ring_vfree(info->xbdev, (void*)refs);
 	} else {
 		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
 		ret = memory_mapping(info, req->backing, mfn, max, true);
@@ -580,6 +571,7 @@ static int thread_main(void *arg)
 
 	{
 		void* addr = NULL;
+		int i;
 
 		ret = xenbus_scanf(XBT_NIL, info->xbdev->otherend, "counter-ref", "%u", &info->ref);
 		if (ret < 0) {
@@ -594,7 +586,14 @@ static int thread_main(void *arg)
 			return ret;
 		}
 		info->mapped = addr;
-		PVDRM_DEBUG("PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[31]));
+		PVDRM_DEBUG("PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[1]));
+		for (i = 0; i < PVDRM_SLOT_NR; ++i) {
+			ret = xenbus_map_ring_valloc(info->xbdev, info->mapped->slot[i].ref, &info->slot_addrs[i]);
+			if (ret) {
+				xenbus_dev_fatal(info->xbdev, ret, "mapping slot addrs");
+				return ret;
+			}
+		}
 	}
 
 	/* Open DRM file. */

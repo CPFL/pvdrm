@@ -215,11 +215,6 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		struct pvdrm_slot* slot = NULL;
 
 		slot = pvdrm_slot_alloc(pvdrm);
-		ret = pvdrm_slot_ensure_ref(pvdrm, slot);
-		if (ret) {
-			pvdrm_slot_free(pvdrm, slot);
-			goto close_channel;
-		}
 		vaddr = (uint8_t*)slot->addr;
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 

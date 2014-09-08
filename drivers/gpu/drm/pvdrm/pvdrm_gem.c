@@ -288,11 +288,6 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		BUG();
 	}
 
-	ret = pvdrm_slot_ensure_ref(pvdrm, slot);
-	if (ret) {
-		BUG();
-	}
-
 	PVDRM_DEBUG("PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
 	ret = pvdrm_slot_call(pvdrm, slot, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
 	PVDRM_DEBUG("PVDRM: fault is done %d.\n", ret);
