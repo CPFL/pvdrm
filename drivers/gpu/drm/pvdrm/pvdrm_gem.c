@@ -264,8 +264,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	uint64_t backing = 0;
 	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
 	bool is_iomem = obj->domain & NOUVEAU_GEM_DOMAIN_VRAM;
-	uint32_t nr_pages = 0;
 	struct drm_pvdrm_gem_fault req;
+	struct pvdrm_slot* slot = NULL;
 
 	if (is_iomem) {
 		backing = virt_to_pfn(obj->backing) + (offset >> PAGE_SHIFT);
@@ -276,22 +276,23 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		.pgoff = vmf->pgoff,
 		.offset = offset,
 		.map_handle = obj->map_handle,
-		.ref = -EINVAL,
 		.mapped_count = 0xdeadbeef,
 		.domain = obj->domain,
 		.backing = backing,
 		.nr_pages = (obj->base.size >> PAGE_SHIFT) - (offset >> PAGE_SHIFT),
 	};
 
-	if (!is_iomem) {
-		refs = (struct pvdrm_mapping*)get_zeroed_page(GFP_KERNEL);
-		req.ref = xenbus_grant_ring(pvdrm_to_xbdev(pvdrm), virt_to_mfn((uintptr_t)refs));
-		if (req.ref < 0) {
-			BUG();
-		}
+	slot = pvdrm_slot_alloc(pvdrm);
+	if (!slot) {
+		BUG();
 	}
+	ret = pvdrm_slot_ensure_ref(pvdrm, slot);
+	if (ret) {
+		BUG();
+	}
+	refs = (struct pvdrm_mapping*)slot->addr;
 
-	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, req.ref);
+	printk(KERN_INFO "PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
 	printk(KERN_INFO "PVDRM: fault is done %d.\n", ret);
 
@@ -323,11 +324,6 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		for (i = 0; i < req.mapped_count; ++i) {
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
 		}
-	}
-
-	if (!is_iomem) {
-		gnttab_free_grant_reference(req.ref);
-		free_page((uintptr_t)refs);
 	}
 
 /* out: */

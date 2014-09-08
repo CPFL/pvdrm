@@ -94,7 +94,6 @@ struct drm_pvdrm_gem_fault {
 	uint64_t backing;
 	uint32_t nr_pages;
 	uint32_t domain;
-	int32_t ref;
 	/* out */ uint64_t mapped_count;
 };
 
@@ -136,7 +135,6 @@ struct pvdrm_slot {
 	// For pushbuf operations.
 	union {
 		struct {
-			int32_t ref;
 			uint16_t nr_buffers;
 			uint16_t nr_relocs;
 			uint16_t nr_push;

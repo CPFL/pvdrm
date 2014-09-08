@@ -169,7 +169,6 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
-		slot->u.transfer.ref = -ENOMEM;
 		ret = pvdrm_slot_request(pvdrm, slot);
 		memcpy(req_out, pvdrm_slot_payload(slot), sizeof(struct drm_nouveau_gem_pushbuf));
 		ret = slot->ret;
@@ -221,9 +220,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 			goto close_channel;
 		}
 		vaddr = (uint8_t*)slot->addr;
-
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
-		slot->u.transfer.ref = slot->ref;
 
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 

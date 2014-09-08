@@ -217,8 +217,8 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	struct drm_nouveau_gem_pushbuf_push* push = NULL;
 	void* addr = NULL;
 
-	printk(KERN_INFO "PVDRM: pushbuf with ref %d\n", slot->u.transfer.ref);
-	if (slot->u.transfer.ref < 0 || req->nr_push == 0) {
+	printk(KERN_INFO "PVDRM: pushbuf with ref %d\n", slot->ref);
+	if (req->nr_push == 0) {
 		/* OK, there's no buffers. */
 		printk(KERN_INFO "PVDRM: pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
@@ -264,7 +264,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		}
 	}
 
-	ret = xenbus_map_ring_valloc(info->xbdev, slot->u.transfer.ref, &addr);
+	ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, &addr);
 	if (ret) {
 		goto destroy_data;
 	}
@@ -346,12 +346,12 @@ static int memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, ui
 	return _hypercall1(int, domctl, &domctl);
 }
 
-static inline uint32_max(uint32_t a, uint32_t b)
+static inline uint32_t uint32_max(uint32_t a, uint32_t b)
 {
 	return (a > b) ? a : b;
 }
 
-static inline uint32_min(uint32_t a, uint32_t b)
+static inline uint32_t uint32_min(uint32_t a, uint32_t b)
 {
 	return (a > b) ? b : a;
 }
@@ -426,9 +426,9 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 		// 		ret,
 		// 		(unsigned long long)vmf.virtual_address,
 		// 		(unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))),
-		// 		req->ref);
+		// 		slot->ref);
 
-		ret = xenbus_map_ring_valloc(info->xbdev, req->ref, (void*)&refs);
+		ret = xenbus_map_ring_valloc(info->xbdev, slot->ref, (void*)&refs);
 		if (ret) {
 			BUG();
 		}
