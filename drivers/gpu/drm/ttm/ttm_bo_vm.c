@@ -88,7 +88,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct ttm_mem_type_manager *man =
 		&bdev->man[bo->mem.mem_type];
 
-	printk(KERN_INFO "PVDRM: TTM FAULT is called with 0x%llx\n", vma->vm_pgoff);
 	/*
 	 * Work around locking order reversal in fault / nopfn
 	 * between mmap_sem and bo_reserve: Perform a trylock operation
@@ -101,7 +100,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			set_need_resched();
 		return VM_FAULT_NOPAGE;
 	}
-	printk(KERN_INFO "PVDRM: TTM FAULT reserve ok.\n");
 
 	if (bdev->driver->fault_reserve_notify) {
 		ret = bdev->driver->fault_reserve_notify(bo);
@@ -118,8 +116,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			goto out_unlock;
 		}
 	}
-
-	printk(KERN_INFO "PVDRM: TTM FAULT notify ok.\n");
 
 	/*
 	 * Wait for buffer data in transit, due to a pipelined
@@ -138,20 +134,16 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	} else
 		spin_unlock(&bdev->fence_lock);
 
-	printk(KERN_INFO "PVDRM: TTM FAULT moving ok.\n");
-
 	ret = ttm_mem_io_lock(man, true);
 	if (unlikely(ret != 0)) {
 		retval = VM_FAULT_NOPAGE;
 		goto out_unlock;
 	}
-	printk(KERN_INFO "PVDRM: TTM FAULT lock ok.\n");
 	ret = ttm_mem_io_reserve_vm(bo);
 	if (unlikely(ret != 0)) {
 		retval = VM_FAULT_SIGBUS;
 		goto out_io_unlock;
 	}
-	printk(KERN_INFO "PVDRM: TTM FAULT io reserve ok.\n");
 
 	page_offset = ((address - vma->vm_start) >> PAGE_SHIFT) +
 	    bo->vm_node->start - vma->vm_pgoff;
@@ -162,8 +154,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		retval = VM_FAULT_SIGBUS;
 		goto out_io_unlock;
 	}
-
-	printk(KERN_INFO "PVDRM: TTM FAULT range ok.\n");
 
 	/*
 	 * Strictly, we're not allowed to modify vma->vm_page_prot here,
@@ -178,7 +168,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	 * vma->vm_page_prot when the object changes caching policy, with
 	 * the correct locks held.
 	 */
-	printk(KERN_INFO "PVDRM: TTM FAULT inserting is iomem? %d...!\n", bo->mem.bus.is_iomem);
 	if (bo->mem.bus.is_iomem) {
 		vma->vm_page_prot = ttm_io_prot(bo->mem.placement,
 						vma->vm_page_prot);
@@ -195,7 +184,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		}
 	}
 
-	printk(KERN_INFO "PVDRM: TTM FAULT inserting...!\n");
 	/*
 	 * Speculatively prefault a number of pages. Only error on
 	 * first page.
@@ -215,7 +203,6 @@ static int ttm_bo_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		}
 
 		ret = vm_insert_mixed(vma, address, pfn);
-		printk(KERN_INFO "PVDRM: TTM FAULT inserting... 0x%llx <= 0x%llx: retval %d\n", address, pfn, ret);
 		/*
 		 * Somebody beat us to this PTE or prefaulting to
 		 * an already populated PTE, or prefaulting error.
@@ -299,7 +286,6 @@ int ttm_bo_mmap(struct file *filp, struct vm_area_struct *vma,
 
 	vma->vm_private_data = bo;
 	vma->vm_flags |= VM_RESERVED | VM_IO | VM_MIXEDMAP | VM_DONTEXPAND;
-	printk(KERN_INFO "PVDRM: TTM mmap is called with map_handle 0x%llx and bo handle 0x%llx\n", vma->vm_pgoff, bo->addr_space_offset);
 	return 0;
 out_unref:
 	ttm_bo_unref(&bo);
