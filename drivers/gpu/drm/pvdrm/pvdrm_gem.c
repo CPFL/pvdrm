@@ -67,7 +67,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 	drm_gem_object_release(&obj->base);
 	if (obj->backing) {
-		free_pages(obj->backing, obj->base.size);
+		free_pages(obj->backing, get_order(obj->base.size));
 		obj->backing = 0;
 	}
 	if (obj->hash.key != -1) {
