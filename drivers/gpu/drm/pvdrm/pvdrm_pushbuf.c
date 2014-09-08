@@ -153,8 +153,6 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 	struct pvdrm_device* pvdrm;
 	struct pvdrm_channel* chan;
 	int ret = 0;
-	uint8_t* vaddr = NULL;
-	grant_ref_t ref = -ENOMEM;
 	struct xenbus_device* xbdev = NULL;
 
 	pvdrm = drm_device_to_pvdrm(dev);
@@ -202,23 +200,6 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 
 	printk(KERN_INFO "PVDRM: Copying pushbufs...\n");
 
-	/* Allocate slot and counter ref. */
-	{
-		vaddr = (void*)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
-		if (!vaddr) {
-			ret = -ENOMEM;
-			xenbus_dev_fatal(xbdev, ret, "allocating ring page");
-			goto close_channel;
-		}
-
-		ref = xenbus_grant_ring(xbdev, virt_to_mfn(vaddr));
-		if (ref < 0) {
-			xenbus_dev_fatal(xbdev, ref, "granting ring page");
-			ret = ref;
-			goto free_page;
-		}
-	}
-
 	{
 		struct pushbuf_copier copier = {
 			.buffers    = (void*)req_out->buffers,
@@ -230,9 +211,20 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		};
 		int first = 1;
 		int next = 0;
-		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
+		uint8_t* vaddr;
+		struct pvdrm_slot* slot = NULL;
+
+		slot = pvdrm_slot_alloc(pvdrm);
+		ret = pvdrm_slot_ensure_ref(pvdrm, slot);
+		if (ret) {
+			pvdrm_slot_free(pvdrm, slot);
+			goto close_channel;
+		}
+		vaddr = (uint8_t*)slot->addr;
+
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
-		slot->u.transfer.ref = ref;
+		slot->u.transfer.ref = slot->ref;
+
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 
 		/* Call. */
@@ -255,16 +247,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		pvdrm_slot_free(pvdrm, slot);
 	}
 
-	if (ref >= 0) {
-		gnttab_free_grant_reference(ref);
-	}
-
 	printk(KERN_INFO "PVDRM: Copying pushbuf... Done.\n");
-
-free_page:
-	if (vaddr) {
-		free_page((unsigned long)vaddr);
-	}
 
 close_channel:
 	pvdrm_channel_unreference(chan);

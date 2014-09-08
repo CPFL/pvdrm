@@ -107,6 +107,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
                 struct pvdrm_slot* slot = &mapped->slot[i];
                 slot->code = PVDRM_UNUSED;
+		slot->ref = -EINVAL;
                 mapped->ring[i] = (uint8_t)-1;
 	}
         wmb();
@@ -209,6 +210,37 @@ void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slo
         mapped->ring[pos] = pvdrm_slot_id(mapped, slot);
 	wmb();
 	atomic_inc(&mapped->count);
+}
+
+int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot)
+{
+	int ret = 0;
+	uintptr_t addr = 0;
+	struct xenbus_device* xbdev = pvdrm_to_xbdev(pvdrm);
+
+	if (slot->ref >= 0) {
+		return 0;
+	}
+
+	/* Allocate ref. */
+	addr = get_zeroed_page(GFP_NOIO | __GFP_HIGH);
+	if (!addr) {
+		ret = -ENOMEM;
+		xenbus_dev_fatal(xbdev, ret, "allocating ring page");
+		return ret;
+	}
+
+	ret = xenbus_grant_ring(xbdev, virt_to_mfn(addr));
+	if (ret < 0) {
+		xenbus_dev_fatal(xbdev, ret, "granting ring page");
+		free_page(addr);
+		return ret;
+	}
+
+	slot->ref = ret;
+	slot->addr = (void*)addr;
+
+	return 0;
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

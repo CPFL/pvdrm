@@ -104,6 +104,10 @@ struct pvdrm_slot {
 
 	int32_t code;
 	int32_t ret;
+
+	int32_t ref;  /* Grant page reference to transfer additional data. */
+	void* addr;   /* And granted page addr. */
+
 	union {
 		uint64_t __payload;  /* To calculate palyload address. */
 
@@ -174,6 +178,7 @@ void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_t seq);
+int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 
 #endif  /* PVDRM_SLOT_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
