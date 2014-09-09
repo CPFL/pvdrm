@@ -52,11 +52,14 @@
 #define PVDRM_PRINTK(level, fmt, arg...) \
 	printk(level "[" DRM_NAME "] " DRIVER_NAME ": " fmt, ##arg)
 
-#if defined(PVDRM_DEBUG_ENABLED)
-	#define PVDRM_DEBUG(fmt, arg...) PVDRM_PRINTK(KERN_DEBUG, fmt, ##arg)
-#else
-	#define PVDRM_DEBUG(fmt, arg...) do { } while (0)
-#endif
+#define PVDRM_DEBUG_LOG 0
+
+#define PVDRM_DEBUG(fmt, arg...) \
+	do { \
+		if (PVDRM_DEBUG_LOG) { \
+			PVDRM_PRINTK(KERN_DEBUG, fmt, ##arg); \
+		} \
+	} while (0)
 
 #define PVDRM_ERROR(fmt, arg...) PVDRM_PRINTK(KERN_ERR, fmt, ##arg)
 #define PVDRM_INFO(fmt, arg...) PVDRM_PRINTK(KERN_INFO, fmt, ##arg)
