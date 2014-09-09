@@ -40,12 +40,13 @@ static inline void pvdrm_bench_open(struct pvdrm_bench* bench)
 static inline void pvdrm_bench_close(struct pvdrm_bench* bench, bool dump)
 {
 	const struct timespec finish = CURRENT_TIME;
-	bench->elapsed = timespec_sub(finish, bench->elapsed);
+	const struct timespec elapsed = timespec_sub(finish, bench->elapsed);
+	bench->elapsed = elapsed;
 	bench->opened = false;
 	if (dump) {
-		const long long unsigned ns = bench->elapsed.tv_sec * 1000ULL * 1000ULL + (bench->elapsed.tv_nsec);
-		const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000ULL);
-		PVDRM_INFO("elapsed time: %lluns / %llums\n", ns, ms);
+		const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000000ULL);
+		const long long unsigned us = bench->elapsed.tv_sec * 1000000ULL + (bench->elapsed.tv_nsec / 1000ULL);
+		PVDRM_INFO("elapsed time: ms:(%llu), us:(%llu)\n", ms, us);
 	}
 }
 
