@@ -157,12 +157,6 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->hash.key = info->map_handle >> PAGE_SHIFT;
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
-
-	/* This gem is iomem. */
-	if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
-		obj->backing = __get_free_pages(GFP_KERNEL, get_order(obj->base.size));
-	}
-
 	spin_lock(&pvdrm->mh2obj_lock);
 	PVDRM_DEBUG("PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
@@ -233,6 +227,11 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 	spin_unlock(&pvdrm->mh2obj_lock);
+
+	/* This gem is iomem. */
+	if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
+		obj->backing = __get_free_pages(GFP_KERNEL, get_order(obj->base.size));
+	}
 
 	/* FIXME: memory reference. */
 	vma->vm_flags |= VM_RESERVED | VM_IO | VM_PFNMAP | VM_DONTEXPAND;
