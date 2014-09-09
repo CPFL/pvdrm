@@ -39,6 +39,7 @@
 #include "drm_crtc_helper.h"
 
 #include "pvdrm.h"
+#include "pvdrm_bench.h"
 #include "pvdrm_cast.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_log.h"
@@ -303,6 +304,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		/* FIXME: unmap and free pages. */
 		struct page* pages[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
 		struct gnttab_map_grant_ref map[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
+		struct pvdrm_bench bench;
 		ret = alloc_xenballooned_pages(req.mapped_count, pages, false /* lowmem */);
 		if (ret) {
 			BUG();
@@ -314,8 +316,9 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
 			gnttab_set_map_op(&map[i], (unsigned long)addr, flags, mapping->ref, pvdrm_to_xbdev(pvdrm)->otherend_id);
 		}
-
-		ret = gnttab_map_refs(map, NULL, pages, req.mapped_count);
+		PVDRM_BENCH(&bench) {
+			ret = gnttab_map_refs(map, NULL, pages, req.mapped_count);
+		}
 		if (ret) {
 			PVDRM_ERROR("error with %d\n", ret);
 			BUG();

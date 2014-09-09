@@ -27,30 +27,30 @@
 #include "pvdrm_log.h"
 
 struct pvdrm_bench {
-        struct timespec elapsed;
-        bool opened;
+	struct timespec elapsed;
+	bool opened;
 };
 
 static inline void pvdrm_bench_open(struct pvdrm_bench* bench)
 {
-        bench->opened = true;
-        bench->elapsed = CURRENT_TIME;
+	bench->opened = true;
+	bench->elapsed = CURRENT_TIME;
 }
 
 static inline void pvdrm_bench_close(struct pvdrm_bench* bench, bool dump)
 {
-        const struct timespec finish = CURRENT_TIME;
-        bench->elapsed = timespec_sub(finish, bench->elapsed);
-        bench->opened = false;
-        if (dump) {
-                const long long unsigned ns = bench->elapsed.tv_sec * 1000ULL * 1000ULL + (bench->elapsed.tv_nsec);
-                const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000ULL);
-                PVDRM_INFO("elapsed time: %lluns / %llums\n", ns, ms);
-        }
+	const struct timespec finish = CURRENT_TIME;
+	bench->elapsed = timespec_sub(finish, bench->elapsed);
+	bench->opened = false;
+	if (dump) {
+		const long long unsigned ns = bench->elapsed.tv_sec * 1000ULL * 1000ULL + (bench->elapsed.tv_nsec);
+		const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000ULL);
+		PVDRM_INFO("elapsed time: %lluns / %llums\n", ns, ms);
+	}
 }
 
 #define PVDRM_BENCH(bench) \
-        for (pvdrm_bench_open(bench); (bench)->opened; pvdrm_bench_close(bench, true))
+	for (pvdrm_bench_open(bench); (bench)->opened; pvdrm_bench_close(bench, true))
 
 #endif  /* PVDRM_BENCH_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
