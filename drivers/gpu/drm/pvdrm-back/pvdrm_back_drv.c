@@ -90,7 +90,6 @@ struct pvdrm_back_vma {
 	int* refs;
 	uint64_t map_handle;
 	uint32_t handle;
-	struct drm_gem_object* obj;
 };
 
 static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
@@ -115,6 +114,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 	if (!obj) {
 		return NULL;
 	}
+	drm_gem_object_unreference(obj);
 
 	size = (end - start);
 	pages = size >> PAGE_SHIFT;
@@ -123,9 +123,6 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 	if (!vma) {
 		BUG();
 	}
-
-	vma->obj = obj;
-	drm_gem_object_unreference(obj);
 
 	vma->map_handle = map_handle;
 	vma->pteps = kzalloc(sizeof(pte_t*) * (pages + 1), GFP_KERNEL);
@@ -352,61 +349,91 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	int i;
 	int ret = 0;
 	int result = 0;
-	int32_t* refs = pvdrm_back_slot_addr(info, slot);
+	uint64_t page_offset = 0;
+	uint32_t max;
+	uint32_t max_limited_by_vm_end;
+	bool already_faulted = false;
+	struct pvdrm_mapping* refs = NULL;
 	struct drm_pvdrm_gem_fault* req = pvdrm_slot_payload(slot);
 	struct pvdrm_back_vma* vma = NULL;
+	struct vm_fault vmf;
 	bool is_iomem = req->domain & NOUVEAU_GEM_DOMAIN_VRAM;
-	uint64_t pages = 0;
 
 	vma = pvdrm_back_vma_find(info, req->map_handle);
 	if (!vma) {
 		return -EINVAL;
 	}
 
-	PVDRM_DEBUG("Fault.... offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
+	page_offset = req->offset >> PAGE_SHIFT;
+	PVDRM_DEBUG("Fault.... start with %llu, offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long long)page_offset, (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
+	if (!pte_none(*vma->pteps[page_offset])) {
+		already_faulted = true;
+	}
 
-	pages = (vma->obj->size >> PAGE_SHIFT);
-
-	/* Ensure all pages have backing stone. */
-	for (i = 0; i < pages; ++i) {
-		if (pte_none(*vma->pteps[i])) {
-			struct vm_fault vmf = {
-				.flags = req->flags,
-				.pgoff = i,
-				.virtual_address = (void*)(vma->base.vm_start + (i * PAGE_SIZE)),
-			};
-			do {
-				ret = vma->base.vm_ops->fault(&vma->base, &vmf);
-				if (ret & VM_FAULT_ERROR) {
-					BUG();
-				}
-			} while (ret & VM_FAULT_RETRY);
-
-			if (ret & VM_FAULT_NOPAGE) {
-				/* page is installed. */
-			} else if (ret & VM_FAULT_LOCKED) {
-				/* FIXME: should install page. */
+	if (!already_faulted) {
+		vmf = (struct vm_fault) {
+			.flags = req->flags,
+			.pgoff = req->pgoff,
+			.virtual_address = (void*)(vma->base.vm_start + req->offset),
+		};
+		PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
+		do {
+			ret = vma->base.vm_ops->fault(&vma->base, &vmf);
+			if (ret & VM_FAULT_ERROR) {
+				BUG();
 			}
-		}
-		if (!is_iomem) {
-			if (vma->refs[i] <= 0) {
-				int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[i])))), 0);
-				PVDRM_DEBUG("PVDRM: to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[i])))));
-				if (ref < 0) {
-					/* FIXME: bug... */
-					xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
-					BUG();
-				}
-				vma->refs[i] = ref;
-			}
-			refs[i] = vma->refs[i];
+		} while (ret & VM_FAULT_RETRY);
+
+		if (ret & VM_FAULT_NOPAGE) {
+			/* page is installed. */
+		} else if (ret & VM_FAULT_LOCKED) {
+			/* FIXME: should install page. */
 		}
 	}
 
-	if (is_iomem) {
-		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[0]))));
-		ret = memory_mapping(info, req->backing, mfn, pages, true);
-		req->mapped_count = pages;
+	max = PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL;
+	max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
+	max = min(max_limited_by_vm_end, max);
+	max = min(req->nr_pages, max);
+
+	for (i = 0; i < max; ++i) {
+		/* Not mappable page? */
+		if (pte_none(*vma->pteps[page_offset + i])) {
+			break;
+		}
+		/* Already mapped in the quest? */
+		if (vma->refs[page_offset + i] > 0) {
+			break;
+		}
+	}
+	max = i;
+
+	if (!is_iomem) {
+		PVDRM_DEBUG("PVDRM: mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
+
+		/* FIXME: This should be removed for optimizations. */
+		refs = pvdrm_back_slot_addr(info, slot);
+		for (i = 0; i < max; ++i) {
+			int offset = page_offset + i;
+			int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
+			PVDRM_DEBUG("PVDRM: to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
+			if (ref < 0) {
+				/* FIXME: bug... */
+				xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
+				BUG();
+			}
+			vma->refs[offset] = ref;
+			refs[i] = (struct pvdrm_mapping) {
+				.i = offset,
+				.ref = ref
+			};
+			++result;
+		}
+		req->mapped_count = result;
+	} else {
+		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
+		ret = memory_mapping(info, req->backing, mfn, max, true);
+		req->mapped_count = max;
 	}
 	return ret;
 }
