@@ -594,6 +594,32 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	return ret;
 }
 
+static struct file* drm_file_open()
+{
+	struct file* filp = NULL;
+
+	mm_segment_t fs;
+	fs = get_fs();
+	set_fs(get_ds());
+	/* FIXME: Currently we use this path directly. We need to implement
+	 * discovery functionality.*/
+	filp = filp_open("/dev/dri/card0", O_RDWR, 0);
+	set_fs(fs);
+	PVDRM_INFO("PVDRM: Opened drm device.\n");
+	return filp;
+}
+
+static void drm_file_close(struct file* filp)
+{
+	if (filp) {
+		mm_segment_t fs;
+		fs = get_fs();
+		set_fs(get_ds());
+		filp_close(filp, NULL);
+		set_fs(fs);
+	}
+}
+
 static int thread_main(void *arg)
 {
 
@@ -637,16 +663,7 @@ static int thread_main(void *arg)
 	}
 
 	/* Open DRM file. */
-	{
-		mm_segment_t fs;
-		fs = get_fs();
-		set_fs(get_ds());
-		/* FIXME: Currently we use this path directly. */
-		info->filp = filp_open("/dev/dri/card0", O_RDWR, 0);
-		set_fs(fs);
-
-		PVDRM_INFO("PVDRM: Opened drm device.\n");
-	}
+	info->filp = drm_file_open();
 
 	PVDRM_INFO("PVDRM: Start main loop.\n");
 	while (true) {
@@ -671,14 +688,8 @@ static int thread_main(void *arg)
 	PVDRM_INFO("PVDRM: End main loop.\n");
 
 	/* Close DRM file. */
-	if (info->filp) {
-		mm_segment_t fs;
-		fs = get_fs();
-		set_fs(get_ds());
-		filp_close(info->filp, NULL);
-		set_fs(fs);
-		info->filp = NULL;
-	}
+	drm_file_close(info->filp);
+	info->filp = NULL;
 
 	return 0;
 }
