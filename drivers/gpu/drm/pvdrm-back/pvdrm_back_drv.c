@@ -216,7 +216,7 @@ static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* add
 		}
 		addr += size;
 	}
-	PVDRM_DEBUG("PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
+	PVDRM_INFO("PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
 
 	return 0;
 }
@@ -264,8 +264,10 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		}
 	}
 
-	/* At once. In this case, we don't copy guest transfer buffer into host buffers.
-	 * Directly use it.
+	/* In the most cases, buffers are very small and they are transfered
+	 * within the one phase. So when transfer phases are only 1, instead of
+	 * duplicating the buffer contents into host buffers, we use the guest
+	 * buffer provided by the hypercall directly.
 	 */
 	if (!(slot->u.transfer.next > 0)) {
 		struct copier copier = { 0 };
@@ -321,7 +323,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 				pvdrm_fence_wait(&slot->__fence, 1, false);
 			}
 		} while (next > 0);
-		PVDRM_INFO("PVDRM: Copying pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", req->nr_buffers, req->nr_relocs, req->nr_push);
+		PVDRM_DEBUG("PVDRM: Copying pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", req->nr_buffers, req->nr_relocs, req->nr_push);
 	}
 
 	req->buffers = (unsigned long)buffers;
