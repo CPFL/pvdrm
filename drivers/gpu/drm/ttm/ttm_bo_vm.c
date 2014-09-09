@@ -38,7 +38,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
-#define TTM_BO_VM_NUM_PREFAULT 16
+#define TTM_BO_VM_NUM_PREFAULT 512
 
 static struct ttm_buffer_object *ttm_bo_vm_lookup_rb(struct ttm_bo_device *bdev,
 						     unsigned long page_start,

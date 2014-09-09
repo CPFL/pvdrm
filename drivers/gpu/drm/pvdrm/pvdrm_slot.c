@@ -130,8 +130,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 
 	/* Init counter. */
         atomic_set(&mapped->count, 0);
-        atomic_set(&mapped->get, UINT32_MAX);
-        atomic_set(&mapped->put, UINT32_MAX);
+        atomic_set(&slots->put, UINT32_MAX);
 
         PVDRM_INFO("PVDRM: Initialized pvdrm counter.\n");
 
@@ -242,7 +241,7 @@ void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slo
 	BUG_ON(!is_used(slot));
 
 	/* Request slot, increment counter. */
-	pos = ((uint32_t)atomic_add_return(1, &mapped->put)) % PVDRM_SLOT_NR;
+	pos = ((uint32_t)atomic_add_return(1, &slots->put)) % PVDRM_SLOT_NR;
         mapped->ring[pos] = pvdrm_slot_id(mapped, slot);
 	wmb();
 	atomic_inc(&mapped->count);

@@ -87,7 +87,7 @@ struct drm_pvdrm_gem_mmap {
 };
 
 struct drm_pvdrm_gem_fault {
-#define PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL 16
+#define PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL 512
 	uint64_t flags;
 	uint64_t pgoff;
 	uint64_t offset;
@@ -151,13 +151,12 @@ static inline void* pvdrm_slot_payload(struct pvdrm_slot* slot) {
 struct pvdrm_mapped {
 	struct pvdrm_slot slot[PVDRM_SLOT_NR];  /* Should be here. */
 	uint8_t ring[PVDRM_SLOT_NR];
-	atomic_t put;
-	atomic_t get;
 	atomic_t count;
 };
 
 struct pvdrm_slots {
 	struct pvdrm_mapped* mapped;
+	atomic_t put;
 	grant_ref_t ref;
 	struct semaphore sema;
 	spinlock_t lock;

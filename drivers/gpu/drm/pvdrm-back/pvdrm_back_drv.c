@@ -68,6 +68,7 @@ struct pvdrm_back_device {
 	struct file* filp;
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
+	atomic_t get;
 	void* slot_addrs[PVDRM_SLOT_NR];
 	struct list_head vmas;
 };
@@ -166,7 +167,7 @@ static struct pvdrm_slot* claim_slot(struct pvdrm_back_device* info)
 	uint32_t id;
 	uint32_t pos;
 	atomic_dec(&info->mapped->count);
-	pos = ((uint32_t)atomic_add_return(1, &info->mapped->get)) % PVDRM_SLOT_NR;
+	pos = ((uint32_t)atomic_add_return(1, &info->get)) % PVDRM_SLOT_NR;
 	id = info->mapped->ring[pos];
 	return &info->mapped->slot[id];
 }
@@ -586,6 +587,7 @@ static int thread_main(void *arg)
 			return ret;
 		}
 		info->mapped = addr;
+		atomic_set(&info->get, UINT32_MAX);
 		PVDRM_DEBUG("PVDRM: sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[1]));
 		for (i = 0; i < PVDRM_SLOT_NR; ++i) {
 			ret = xenbus_map_ring_valloc(info->xbdev, info->mapped->slot[i].ref, &info->slot_addrs[i]);
@@ -614,8 +616,7 @@ static int thread_main(void *arg)
 			/* Sleep. */
 			ktime_t time;
 			__set_current_state(TASK_INTERRUPTIBLE);
-			// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
-			time = ktime_set(0, 20);
+			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
 			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
 		}
 

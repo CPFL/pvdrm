@@ -302,8 +302,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
 
 		/* FIXME: unmap and free pages. */
-		struct page* pages[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
-		struct gnttab_map_grant_ref map[PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL];
+		struct page** pages = kzalloc(sizeof(struct page*) * PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL, GFP_KERNEL);
+		struct gnttab_map_grant_ref* map = kzalloc(sizeof(struct gnttab_map_grant_ref) * PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL, GFP_KERNEL);
 		struct pvdrm_bench bench;
 		ret = alloc_xenballooned_pages(req.mapped_count, pages, false /* lowmem */);
 		if (ret) {
