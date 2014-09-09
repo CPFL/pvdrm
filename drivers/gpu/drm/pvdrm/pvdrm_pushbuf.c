@@ -135,7 +135,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 			struct drm_pvdrm_gem_object* obj = NULL;
 			obj = pvdrm_gem_object_lookup(dev, file, handle);
 			if (!obj) {
-				PVDRM_ERROR("PVDRM: pushbuf No valid obj with handle %u.\n", handle);
+				PVDRM_ERROR("pushbuf No valid obj with handle %u.\n", handle);
 				return -EINVAL;
 			}
 			buffers[i].handle = obj->host;
@@ -170,7 +170,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 		slot->u.transfer.nr_push = pair.nr;
 	}
 
-	PVDRM_DEBUG("PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
+	PVDRM_DEBUG("Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
 
 	if (!copier->nr_buffers && !copier->nr_relocs && !copier->nr_push) {
 		/* All data is transferred. */
@@ -199,7 +199,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 
 	if (req_out->nr_push == 0) {
 		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
-		PVDRM_DEBUG("PVDRM: pushbuf with no buffers...\n");
+		PVDRM_DEBUG("pushbuf with no buffers...\n");
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 		ret = pvdrm_slot_request(pvdrm, slot);
@@ -230,7 +230,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		}
 	}
 
-	PVDRM_DEBUG("PVDRM: Copying pushbufs...\n");
+	PVDRM_DEBUG("Copying pushbufs...\n");
 
 	{
 		struct pushbuf_copier copier = {
@@ -254,7 +254,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 
 		/* Call. */
 		do {
-			PVDRM_DEBUG("PVDRM: Copy! pushbuf...\n");
+			PVDRM_DEBUG("Copy! pushbuf...\n");
 			next = transfer(dev, file, &copier, vaddr, slot);
 			slot->u.transfer.next = next;
 			if (first) {
@@ -272,7 +272,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		pvdrm_slot_free(pvdrm, slot);
 	}
 
-	PVDRM_DEBUG("PVDRM: Copying pushbuf... Done.\n");
+	PVDRM_DEBUG("Copying pushbuf... Done.\n");
 
 close_channel:
 	pvdrm_channel_unreference(chan);

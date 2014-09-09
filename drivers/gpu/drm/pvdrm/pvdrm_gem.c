@@ -61,7 +61,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
-	PVDRM_DEBUG("PVDRM: freeing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("freeing GEM %llx.\n", (unsigned long long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -84,7 +84,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	PVDRM_DEBUG("PVDRM: opening GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("opening GEM %llx.\n", (unsigned long long)obj->host);
 	return 0;
 }
 
@@ -97,7 +97,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	};
 	int ret = 0;
 
-	PVDRM_DEBUG("PVDRM: closing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_DEBUG("closing GEM %llx.\n", (unsigned long long)obj->host);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 
@@ -158,7 +158,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
 	spin_lock(&pvdrm->mh2obj_lock);
-	PVDRM_DEBUG("PVDRM: registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
+	PVDRM_DEBUG("registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
 	spin_unlock(&pvdrm->mh2obj_lock);
 	if (ret) {
@@ -213,7 +213,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	spin_lock(&pvdrm->mh2obj_lock);
-	PVDRM_DEBUG("PVDRM: lookup %lx\n", vma->vm_pgoff);
+	PVDRM_DEBUG("lookup %lx\n", vma->vm_pgoff);
 	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
 		spin_unlock(&pvdrm->mh2obj_lock);
 		BUG();
@@ -288,15 +288,15 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		BUG();
 	}
 
-	PVDRM_DEBUG("PVDRM: fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
+	PVDRM_DEBUG("fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
 	ret = pvdrm_slot_call(pvdrm, slot, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
-	PVDRM_DEBUG("PVDRM: fault is done %d.\n", ret);
+	PVDRM_DEBUG("fault is done %d.\n", ret);
 
 	if (ret < 0) {
 		BUG();
 	}
 
-	PVDRM_DEBUG("PVDRM: mapping pages %u\n", (unsigned)req.mapped_count);
+	PVDRM_DEBUG("mapping pages %u\n", (unsigned)req.mapped_count);
 	if (!is_iomem) {
 		struct pvdrm_mapping* refs = (struct pvdrm_mapping*)slot->addr;
 
@@ -312,7 +312,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			uint32_t flags = GNTMAP_host_map;
 			struct pvdrm_mapping* mapping = &refs[i];
 			void* addr = pfn_to_kaddr(page_to_pfn(pages[i]));
-			PVDRM_DEBUG("PVDRM: mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
+			PVDRM_DEBUG("mapping pages page[%d] from dom%d = %d\n", mapping->i, pvdrm_to_xbdev(pvdrm)->otherend_id, mapping->ref);
 			gnttab_set_map_op(&map[i], (unsigned long)addr, flags, mapping->ref, pvdrm_to_xbdev(pvdrm)->otherend_id);
 		}
 		PVDRM_BENCH(&bench) {
@@ -326,7 +326,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		for (i = 0; i < req.mapped_count; ++i) {
 			struct pvdrm_mapping* mapping = &refs[i];
 			unsigned long pfn = page_to_pfn(pages[i]);
-			PVDRM_DEBUG("PVDRM: mapping pages page[%d] == pfn:(0x%lx)\n", mapping->i, pfn);
+			PVDRM_DEBUG("mapping pages page[%d] == pfn:(0x%lx)\n", mapping->i, pfn);
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
 			if (ret) {
 				BUG();

@@ -153,7 +153,7 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
         ret = 0;
 
-	PVDRM_INFO("PVDRM CONNECTED.\n");
+	PVDRM_INFO("CONNECTED.\n");
 
         pvdrm = xbdev_to_pvdrm(xbdev);
 
@@ -167,7 +167,7 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	idr_init(&pvdrm->channels_idr);
 	spin_lock_init(&pvdrm->channels_lock);
 
-	PVDRM_INFO("PVDRM setting counter-ref.\n");
+	PVDRM_INFO("setting counter-ref.\n");
 
         {
                 struct xenbus_transaction xbt;
@@ -195,7 +195,7 @@ again:
         }
 
 	xenbus_switch_state(xbdev, XenbusStateConnected);
-	PVDRM_INFO("PVDRM: setting is done.\n");
+	PVDRM_INFO("setting is done.\n");
 
         return 0;
 }
@@ -219,7 +219,7 @@ static void backend_changed(struct xenbus_device *xbdev, enum xenbus_state backe
 
 	case XenbusStateConnected:
                 /* Connected & Connected. */
-                PVDRM_INFO("PVDRM: Ok, now connecting.\n");
+                PVDRM_INFO("Ok, now connecting.\n");
 		break;
 
 	case XenbusStateClosing:

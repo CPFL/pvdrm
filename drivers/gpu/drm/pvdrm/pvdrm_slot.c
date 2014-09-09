@@ -88,7 +88,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 
         BUILD_BUG_ON(sizeof(struct pvdrm_mapped) > PAGE_SIZE);
 
-        PVDRM_INFO("PVDRM: Initializing pvdrm slots.\n");
+        PVDRM_INFO("Initializing pvdrm slots.\n");
 	ret = 0;
 
 	slots = kzalloc(sizeof(struct pvdrm_slots), GFP_KERNEL);
@@ -124,7 +124,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 		slots->ref = ret;
 		slots->mapped = (void*)vaddr;
 	}
-	PVDRM_INFO("PVDRM: Initialising pvdrm counter reference %u.\n", slots->ref);
+	PVDRM_INFO("Initialising pvdrm counter reference %u.\n", slots->ref);
 
         mapped = slots->mapped;
 
@@ -132,7 +132,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
         atomic_set(&mapped->count, 0);
         atomic_set(&slots->put, UINT32_MAX);
 
-        PVDRM_INFO("PVDRM: Initialized pvdrm counter.\n");
+        PVDRM_INFO("Initialized pvdrm counter.\n");
 
 	/* Init slots. */
 	for (i = 0; i < PVDRM_SLOT_NR; ++i) {
@@ -147,7 +147,7 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 	}
         wmb();
 
-        PVDRM_INFO("PVDRM: Initialized pvdrm slots.\n");
+        PVDRM_INFO("Initialized pvdrm slots.\n");
 
 	return 0;
 }

@@ -88,7 +88,7 @@ again:
 	}
 
 	/* Adjust gem information for guest environment. */
-	PVDRM_DEBUG("PVDRM: Allocating guest channel %d with host %d.\n", chan->channel, chan->host);
+	PVDRM_DEBUG("Allocating guest channel %d with host %d.\n", chan->channel, chan->host);
 	req_out->channel = chan->channel;
 
 	*result = chan;
@@ -104,11 +104,11 @@ int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm
 	pvdrm = drm_device_to_pvdrm(dev);
         chan = pvdrm_channel_lookup(dev, req_out->channel);
         if (!chan) {
-		PVDRM_ERROR("PVDRM: Freeing channel %u.\n", req_out->channel);
+		PVDRM_ERROR("Freeing channel %u.\n", req_out->channel);
 		return -EINVAL;
         }
 
-	PVDRM_DEBUG("PVDRM: Freeing guest channel %d with host %d.\n", chan->channel, chan->host);
+	PVDRM_DEBUG("Freeing guest channel %d with host %d.\n", chan->channel, chan->host);
 	req_out->channel = chan->host;
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
 	pvdrm_channel_unreference(chan);  /* Release. */
@@ -127,7 +127,7 @@ struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id)
 	chan = idr_find(&pvdrm->channels_idr, id);
 	if (chan == NULL) {
 		spin_unlock(&pvdrm->channels_lock);
-		PVDRM_ERROR("PVDRM: Look up invalid channel %u.\n", id);
+		PVDRM_ERROR("Look up invalid channel %u.\n", id);
 		return NULL;
 	}
 	pvdrm_channel_reference(chan);
