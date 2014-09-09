@@ -57,7 +57,6 @@
 
 typedef struct {
 	spinlock_t req_lock;
-	struct workqueue_struct* wq;
 } pvdrm_back_core_t;
 
 static pvdrm_back_core_t* pvdrm_back_core;
@@ -79,6 +78,8 @@ struct pvdrm_back_device {
 	atomic_t get;
 	void* slot_addrs[PVDRM_SLOT_NR];
 	struct pvdrm_back_work works[PVDRM_SLOT_NR];
+	struct workqueue_struct* wq;
+	bool sequential;
 	struct list_head vmas;
 };
 
@@ -709,8 +710,12 @@ static int polling(void *arg)
 			struct pvdrm_back_work* work = pvdrm_back_slot_work(info, slot);
 			work->slot = slot;
 			work->info = info;
-			INIT_WORK(&work->base, process_slot);
-			queue_work(pvdrm_back_core->wq, &work->base);
+			if (info->sequential) {
+				process_slot(&work->base);
+			} else {
+				INIT_WORK(&work->base, process_slot);
+				queue_work(info->wq, &work->base);
+			}
 		}
 	}
 	PVDRM_INFO("End main loop.\n");
@@ -737,6 +742,12 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	dev_set_drvdata(&xbdev->dev, info);
 	INIT_LIST_HEAD(&info->vmas);
 
+	info->wq = alloc_workqueue("pvdrm-back%d", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0, xbdev->otherend_id);
+	if (!info->wq) {
+		BUG();
+	}
+	info->sequential = true;  /* Don't use workqueue for process_slot. false if using workqueue for process_slot. */
+
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {
 		PVDRM_ERROR("failed");
@@ -752,6 +763,8 @@ static int pvdrm_back_remove(struct xenbus_device *xbdev)
 	PVDRM_INFO("Removing backend driver.\n");
 
 	info = dev_get_drvdata(&xbdev->dev);
+	flush_workqueue(info->wq);
+	destroy_workqueue(info->wq);
 	kfree(info);
 
 	return 0;
@@ -842,11 +855,6 @@ static int __init pvdrm_back_init(void)
 		return -ENOMEM;
 	}
 	spin_lock_init(&pvdrm_back_core->req_lock);
-	pvdrm_back_core->wq = alloc_workqueue("pvdrm-back", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
-	if (!pvdrm_back_core->wq) {
-		BUG();
-	}
-
 	PVDRM_INFO("Initialising backend driver.\n");
 
 	return xenbus_register_backend(&pvdrm_back_driver);
@@ -855,8 +863,6 @@ module_init(pvdrm_back_init);
 
 static void __exit pvdrm_back_exit(void)
 {
-	flush_workqueue(pvdrm_back_core->wq);
-	destroy_workqueue(pvdrm_back_core->wq);
 	kfree(pvdrm_back_core);
 	xenbus_unregister_driver(&pvdrm_back_driver);
 }
