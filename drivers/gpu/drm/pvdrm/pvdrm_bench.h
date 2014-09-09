@@ -43,8 +43,9 @@ static inline void pvdrm_bench_close(struct pvdrm_bench* bench, bool dump)
         bench->elapsed = timespec_sub(finish, bench->elapsed);
         bench->opened = false;
         if (dump) {
-                const double ms = bench->elapsed.tv_sec * 1000 + (bench->elapsed.tv_nsec / 1000.0);
-                PVDRM_INFO("elapsed time: %0.6fms", ms);
+                const long long unsigned ns = bench->elapsed.tv_sec * 1000ULL * 1000ULL + (bench->elapsed.tv_nsec);
+                const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000ULL);
+                PVDRM_INFO("elapsed time: %lluns / %llums\n", ns, ms);
         }
 }
 
