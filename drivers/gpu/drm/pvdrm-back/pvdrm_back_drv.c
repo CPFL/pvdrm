@@ -57,10 +57,18 @@
 
 typedef struct {
 	spinlock_t req_lock;
-	wait_queue_head_t req;
+	struct workqueue_struct* wq;
 } pvdrm_back_core_t;
 
 static pvdrm_back_core_t* pvdrm_back_core;
+
+struct pvdrm_back_device;
+
+struct pvdrm_back_work {
+	struct work_struct base;
+	struct pvdrm_back_device* info;
+	struct pvdrm_slot* slot;
+};
 
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
@@ -70,6 +78,7 @@ struct pvdrm_back_device {
 	struct pvdrm_mapped* mapped;
 	atomic_t get;
 	void* slot_addrs[PVDRM_SLOT_NR];
+	struct pvdrm_back_work works[PVDRM_SLOT_NR];
 	struct list_head vmas;
 };
 
@@ -96,6 +105,11 @@ struct pvdrm_back_vma {
 static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	return info->slot_addrs[pvdrm_slot_id(info->mapped, slot)];
+}
+
+static struct pvdrm_back_work* pvdrm_back_slot_work(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+{
+	return &info->works[pvdrm_slot_id(info->mapped, slot)];
 }
 
 static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
@@ -499,12 +513,25 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	return ret;
 }
 
-static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+static void process_slot(struct work_struct* arg)
 {
 	int ret;
+	struct pvdrm_back_work* work = NULL;
+	struct pvdrm_back_device* info = NULL;
+	struct pvdrm_slot* slot = NULL;
 	struct drm_file* file_priv = NULL;
 	struct drm_device* dev = NULL;
 	mm_segment_t fs;
+
+	work = container_of(arg, struct pvdrm_back_work, base);
+	BUG_ON(!work);
+	info = work->info;
+	BUG_ON(!info);
+	slot = work->slot;
+	BUG_ON(!slot);
+
+	PVDRM_DEBUG("processing slot %d\n", slot->code);
+	/* msleep(1000); */
 
 	ret = 0;
 	file_priv = pvdrm_back_device_to_drm_file(info);
@@ -512,8 +539,6 @@ static int process_slot(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 
 	fs = get_fs();
 	set_fs(get_ds());
-	PVDRM_DEBUG("processing slot %d\n", slot->code);
-	/* msleep(1000); */
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
@@ -619,7 +644,7 @@ static void drm_file_close(struct file* filp)
 	}
 }
 
-static int thread_main(void *arg)
+static int polling(void *arg)
 {
 
 	int ret;
@@ -681,7 +706,11 @@ static int thread_main(void *arg)
 
 		if (pvdrm_back_count(info)) {
 			struct pvdrm_slot* slot = claim_slot(info);
-			process_slot(info, slot);
+			struct pvdrm_back_work* work = pvdrm_back_slot_work(info, slot);
+			work->slot = slot;
+			work->info = info;
+			INIT_WORK(&work->base, process_slot);
+			queue_work(pvdrm_back_core->wq, &work->base);
 		}
 	}
 	PVDRM_INFO("End main loop.\n");
@@ -756,7 +785,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 		}
 
 		/* OK, connected. */
-		info->thread = kthread_run(thread_main, (void*)info, "pvdrm-back");
+		info->thread = kthread_run(polling, (void*)info, "pvdrm-back");
 		break;
 
 	case XenbusStateClosing:
@@ -812,15 +841,11 @@ static int __init pvdrm_back_init(void)
 		BUG();
 		return -ENOMEM;
 	}
-
-#if 0
-	threads = num_online_cpus();
-	for (i = 0; i < threads; ++i) {
-	}
-#endif
-
 	spin_lock_init(&pvdrm_back_core->req_lock);
-	init_waitqueue_head(&pvdrm_back_core->req);
+	pvdrm_back_core->wq = alloc_workqueue("pvdrm-back", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
+	if (!pvdrm_back_core->wq) {
+		BUG();
+	}
 
 	PVDRM_INFO("Initialising backend driver.\n");
 
@@ -830,6 +855,9 @@ module_init(pvdrm_back_init);
 
 static void __exit pvdrm_back_exit(void)
 {
+	flush_workqueue(pvdrm_back_core->wq);
+	destroy_workqueue(pvdrm_back_core->wq);
+	kfree(pvdrm_back_core);
 	xenbus_unregister_driver(&pvdrm_back_driver);
 }
 module_exit(pvdrm_back_exit);
