@@ -23,6 +23,7 @@
 */
 
 #include <linux/types.h>
+#include <linux/kernel.h>
 #include <drm/nouveau_drm.h>
 
 #include <xen/xen.h>
@@ -55,47 +56,81 @@ struct pushbuf_copier {
 	uint32_t nr_push;
 };
 
-static size_t can_transfer_buffers_nr(struct pushbuf_copier* copier, size_t rest)
+struct pvdrm_addr_and_nr {
+	uint8_t* addr;
+	size_t nr;
+};
+
+static struct pvdrm_addr_and_nr can_transfer_buffers_nr(struct pushbuf_copier* copier, uint8_t* addr, uint8_t* last)
 {
-	if (copier->nr_buffers * sizeof(struct drm_nouveau_gem_pushbuf_bo) <= rest) {
-		return copier->nr_buffers;
+	struct drm_nouveau_gem_pushbuf_bo* end = (struct drm_nouveau_gem_pushbuf_bo*)last;
+	struct drm_nouveau_gem_pushbuf_bo* tip = (struct drm_nouveau_gem_pushbuf_bo*)PTR_ALIGN(addr, sizeof(struct drm_nouveau_gem_pushbuf_bo));
+	size_t nr = copier->nr_buffers;
+
+	if ((tip + nr) <= end) {
+		return (struct pvdrm_addr_and_nr) {
+			.addr = (void*)tip,
+			.nr = nr,
+		};
 	}
-	return rest / sizeof(struct drm_nouveau_gem_pushbuf_bo);
+	return (struct pvdrm_addr_and_nr) {
+		.addr = (void*)tip,
+		.nr = (end - tip),
+	};
 }
 
-static size_t can_transfer_relocs_nr(struct pushbuf_copier* copier, size_t rest)
+static struct pvdrm_addr_and_nr can_transfer_relocs_nr(struct pushbuf_copier* copier, uint8_t* addr, uint8_t* last)
 {
-	if (copier->nr_relocs * sizeof(struct drm_nouveau_gem_pushbuf_reloc) <= rest) {
-		return copier->nr_relocs;
+	struct drm_nouveau_gem_pushbuf_reloc* end = (struct drm_nouveau_gem_pushbuf_reloc*)last;
+	struct drm_nouveau_gem_pushbuf_reloc* tip = (struct drm_nouveau_gem_pushbuf_reloc*)PTR_ALIGN(addr, sizeof(struct drm_nouveau_gem_pushbuf_reloc));
+	size_t nr = copier->nr_relocs;
+
+	if ((tip + nr) <= end) {
+		return (struct pvdrm_addr_and_nr) {
+			.addr = (void*)tip,
+			.nr = nr,
+		};
 	}
-	return rest / sizeof(struct drm_nouveau_gem_pushbuf_reloc);
+	return (struct pvdrm_addr_and_nr) {
+		.addr = (void*)tip,
+		.nr = (end - tip),
+	};
 }
 
-static size_t can_transfer_push_nr(struct pushbuf_copier* copier, size_t rest)
+static struct pvdrm_addr_and_nr can_transfer_push_nr(struct pushbuf_copier* copier, uint8_t* addr, uint8_t* last)
 {
-	if (copier->nr_push * sizeof(struct drm_nouveau_gem_pushbuf_push) <= rest) {
-		return copier->nr_push;
+	struct drm_nouveau_gem_pushbuf_push* end = (struct drm_nouveau_gem_pushbuf_push*)last;
+	struct drm_nouveau_gem_pushbuf_push* tip = (struct drm_nouveau_gem_pushbuf_push*)PTR_ALIGN(addr, sizeof(struct drm_nouveau_gem_pushbuf_push));
+	size_t nr = copier->nr_push;
+
+	if ((tip + nr) <= end) {
+		return (struct pvdrm_addr_and_nr) {
+			.addr = (void*)tip,
+			.nr = nr,
+		};
 	}
-	return rest / sizeof(struct drm_nouveau_gem_pushbuf_push);
+	return (struct pvdrm_addr_and_nr) {
+		.addr = (void*)tip,
+		.nr = (end - tip),
+	};
 }
 
 static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbuf_copier* copier, uint8_t* addr, struct pvdrm_slot* slot)
 {
-	size_t rest = PAGE_SIZE;
-	size_t nr;
+	uint8_t* last = (uint8_t*)(((uintptr_t)addr) + PAGE_SIZE);
+	struct pvdrm_addr_and_nr pair = { 0 };
 	size_t i;
 
 	slot->u.transfer.nr_buffers = 0;
 	slot->u.transfer.nr_relocs = 0;
 	slot->u.transfer.nr_push = 0;
 
-	nr = can_transfer_buffers_nr(copier, rest);
-	if (nr) {
-		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_bo) * nr;
-		struct drm_nouveau_gem_pushbuf_bo* buffers = (struct drm_nouveau_gem_pushbuf_bo*)addr;
-		copy_from_user(addr, copier->buffers, size);
-		/* Since we first copies buffers to the page, these buffers in the kernel memory are always aligned correctly. */
-		for (i = 0; i < nr; ++i) {
+	pair = can_transfer_buffers_nr(copier, addr, last);
+	if (pair.nr) {
+		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_bo) * pair.nr;
+		struct drm_nouveau_gem_pushbuf_bo* buffers = (struct drm_nouveau_gem_pushbuf_bo*)pair.addr;
+		copy_from_user(pair.addr, copier->buffers, size);
+		for (i = 0; i < pair.nr; ++i) {
 			uint32_t handle = buffers[i].handle;
 			struct drm_pvdrm_gem_object* obj = NULL;
 			obj = pvdrm_gem_object_lookup(dev, file, handle);
@@ -107,35 +142,32 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 			drm_gem_object_unreference(&obj->base);
 		}
 
-		copier->buffers += nr;
-		copier->nr_buffers -= nr;
-		addr += size;
-		rest -= size;
-		slot->u.transfer.nr_buffers = nr;
+		copier->buffers += pair.nr;
+		copier->nr_buffers -= pair.nr;
+		addr = (pair.addr + size);
+		slot->u.transfer.nr_buffers = pair.nr;
 	}
 
-	nr = can_transfer_relocs_nr(copier, rest);
-	if (nr) {
-		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_reloc) * nr;
-		copy_from_user(addr, copier->relocs, size);
+	pair = can_transfer_relocs_nr(copier, addr, last);
+	if (pair.nr) {
+		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_reloc) * pair.nr;
+		copy_from_user(pair.addr, copier->relocs, size);
 
-		copier->relocs += nr;
-		copier->nr_relocs -= nr;
-		addr += size;
-		rest -= size;
-		slot->u.transfer.nr_relocs = nr;
+		copier->relocs += pair.nr;
+		copier->nr_relocs -= pair.nr;
+		addr = (pair.addr + size);
+		slot->u.transfer.nr_relocs = pair.nr;
 	}
 
-	nr = can_transfer_push_nr(copier, rest);
-	if (nr) {
-		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_push) * nr;
-		copy_from_user(addr, copier->push, size);
+	pair = can_transfer_push_nr(copier, addr, last);
+	if (pair.nr) {
+		const size_t size = sizeof(struct drm_nouveau_gem_pushbuf_push) * pair.nr;
+		copy_from_user(pair.addr, copier->push, size);
 
-		copier->push += nr;
-		copier->nr_push -= nr;
-		addr += size;
-		rest -= size;
-		slot->u.transfer.nr_push = nr;
+		copier->push += pair.nr;
+		copier->nr_push -= pair.nr;
+		addr = (pair.addr + size);
+		slot->u.transfer.nr_push = pair.nr;
 	}
 
 	PVDRM_DEBUG("PVDRM: Transferring pushbuf... Done. buffers:%u, relocs:%u, push:%u.\n", slot->u.transfer.nr_buffers, slot->u.transfer.nr_relocs, slot->u.transfer.nr_push);
