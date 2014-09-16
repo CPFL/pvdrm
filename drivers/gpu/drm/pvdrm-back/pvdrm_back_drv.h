@@ -66,5 +66,15 @@ struct pvdrm_back_device {
 	spinlock_t file_lock;
 };
 
+struct pvdrm_back_vma {
+	struct vm_area_struct base;
+	struct list_head next;
+	struct vm_struct* area;
+	pte_t** pteps;
+	int* refs;
+	uint64_t map_handle;
+	uint32_t handle;
+};
+
 #endif  /* PVDRM_BACK_DRV_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

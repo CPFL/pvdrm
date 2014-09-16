@@ -70,16 +70,6 @@ struct drm_device* pvdrm_back_device_to_drm_device(struct pvdrm_back_device* inf
 	return pvdrm_back_device_to_drm_file(info)->minor->dev;
 }
 
-struct pvdrm_back_vma {
-	struct vm_area_struct base;
-	struct list_head next;
-	struct vm_struct* area;
-	pte_t** pteps;
-	int* refs;
-	uint64_t map_handle;
-	uint32_t handle;
-};
-
 static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 {
 	return info->slot_addrs[pvdrm_slot_id(info->mapped, slot)];
