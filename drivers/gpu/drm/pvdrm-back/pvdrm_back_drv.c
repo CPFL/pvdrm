@@ -50,8 +50,7 @@
 
 #include "drmP.h"
 
-#include "../pvdrm/pvdrm_log.h"
-#include "../pvdrm/pvdrm_slot.h"
+#include "pvdrm_back_drv.h"
 
 #include "xen_added_interface.h"  /* For domctl. */
 
@@ -61,31 +60,9 @@ typedef struct {
 
 static pvdrm_back_core_t* pvdrm_back_core;
 
-struct pvdrm_back_device;
-
-struct pvdrm_back_work {
-	struct work_struct base;
-	struct pvdrm_back_device* info;
-	struct pvdrm_slot* slot;
-};
-
-struct pvdrm_back_device {
-	struct xenbus_device* xbdev;
-	struct task_struct* thread;
-	struct file* filp;
-	grant_ref_t ref;
-	struct pvdrm_mapped* mapped;
-	atomic_t get;
-	void* slot_addrs[PVDRM_SLOT_NR];
-	struct pvdrm_back_work works[PVDRM_SLOT_NR];
-	struct workqueue_struct* wq;
-	bool sequential;
-	struct list_head vmas;
-};
-
 struct drm_file* pvdrm_back_device_to_drm_file(struct pvdrm_back_device* info)
 {
-	return info->filp->private_data;
+	return info->file->filp->private_data;
 }
 
 struct drm_device* pvdrm_back_device_to_drm_device(struct pvdrm_back_device* info)
@@ -166,7 +143,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_alloc(struct pvdrm_back_device* inf
 	vma->base.vm_page_prot = pgprot_writecombine(vm_get_page_prot(flags));
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
 	vma->base.vm_pgoff = map_handle >> PAGE_SHIFT;
-	vma->base.vm_file = info->filp;
+	vma->base.vm_file = info->file->filp;
 
 	list_add(&vma->next, &info->vmas);
 	return vma;
@@ -251,7 +228,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		/* OK, there's no buffers. */
 		PVDRM_DEBUG("pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
 
@@ -294,7 +271,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		req->buffers = (unsigned long)copier.buffers;
 		req->relocs = (unsigned long)copier.relocs;
 		req->push = (unsigned long)copier.push;
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
 		return ret;
 	}
@@ -344,7 +321,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	req->buffers = (unsigned long)buffers;
 	req->relocs = (unsigned long)relocs;
 	req->push = (unsigned long)push;
-	ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+	ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
 destroy_data:
 	if (buffers) {
@@ -505,7 +482,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
 	/* Call f_op->mmap operation directly since vm_mmap requires current->mm
 	 * is not NULL.
 	 */
-	ret = info->filp->f_op->mmap(info->filp, &vma->base);
+	ret = info->file->filp->f_op->mmap(info->file->filp, &vma->base);
 	if (ret) {
 		BUG();
 		return -EINVAL;
@@ -545,24 +522,24 @@ static void process_slot(struct work_struct* arg)
 	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
 		PVDRM_DEBUG("allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_CHANNEL_FREE, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_FREE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_INFO:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_INFO, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_INFO, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_NEW:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF:
@@ -570,11 +547,11 @@ static void process_slot(struct work_struct* arg)
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_PREP, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_PREP, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_FREE: {
@@ -593,7 +570,7 @@ static void process_slot(struct work_struct* arg)
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_CLOSE:
-		ret = drm_ioctl(info->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(info->file->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_MMAP:
@@ -617,32 +594,6 @@ static void process_slot(struct work_struct* arg)
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
 	PVDRM_DEBUG("slot %d is done\n", slot->code);
-}
-
-static struct file* drm_file_open(void)
-{
-	struct file* filp = NULL;
-
-	mm_segment_t fs;
-	fs = get_fs();
-	set_fs(get_ds());
-	/* FIXME: Currently we use this path directly. We need to implement
-	 * discovery functionality.*/
-	filp = filp_open("/dev/dri/card0", O_RDWR, 0);
-	set_fs(fs);
-	PVDRM_INFO("Opened drm device.\n");
-	return filp;
-}
-
-static void drm_file_close(struct file* filp)
-{
-	if (filp) {
-		mm_segment_t fs;
-		fs = get_fs();
-		set_fs(get_ds());
-		filp_close(filp, NULL);
-		set_fs(fs);
-	}
 }
 
 static int polling(void *arg)
@@ -688,7 +639,7 @@ static int polling(void *arg)
 	}
 
 	/* Open DRM file. */
-	info->filp = drm_file_open();
+	info->file = pvdrm_back_file_new(info);
 
 	PVDRM_INFO("Start main loop.\n");
 	while (true) {
@@ -721,8 +672,8 @@ static int polling(void *arg)
 	PVDRM_INFO("End main loop.\n");
 
 	/* Close DRM file. */
-	drm_file_close(info->filp);
-	info->filp = NULL;
+	pvdrm_back_file_destroy(info->file);
+	info->file = NULL;
 
 	return 0;
 }
@@ -741,6 +692,8 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	info->xbdev = xbdev;
 	dev_set_drvdata(&xbdev->dev, info);
 	INIT_LIST_HEAD(&info->vmas);
+	idr_init(&info->file_idr);
+	spin_lock_init(&info->file_lock);
 
 	info->wq = alloc_workqueue("pvdrm-back%d", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0, xbdev->otherend_id);
 	if (!info->wq) {
