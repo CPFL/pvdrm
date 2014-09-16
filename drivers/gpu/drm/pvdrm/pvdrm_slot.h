@@ -172,7 +172,7 @@ struct pvdrm_device;
 
 int pvdrm_slots_init(struct pvdrm_device* pvdrm);
 int pvdrm_slots_release(struct pvdrm_device* pvdrm);
-static inline uint8_t pvdrm_slot_id(struct pvdrm_mapped* mapped, struct pvdrm_slot* slot)
+static inline uint8_t pvdrm_slot_id(const struct pvdrm_mapped* mapped, const struct pvdrm_slot* slot)
 {
 	return (((uintptr_t)slot) - ((uintptr_t)mapped)) / sizeof(struct pvdrm_slot);
 }
