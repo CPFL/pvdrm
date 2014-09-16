@@ -40,7 +40,13 @@
 static void pvdrm_channel_release(struct kref* ref)
 {
 	struct pvdrm_channel* chan = container_of(ref, struct pvdrm_channel, ref);
+	struct pvdrm_device* pvdrm = chan->pvdrm;
 	PVDRM_DEBUG("Deallocating channel %d with host %d.\n", chan->channel, chan->host);
+
+	spin_lock(&pvdrm->channels_lock);
+	idr_remove(&pvdrm->channels_idr, chan->channel);
+	spin_unlock(&pvdrm->channels_lock);
+
         kfree(chan);
 }
 
@@ -72,6 +78,7 @@ int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct dr
 		return -ENOMEM;
 
 	chan->host = req_out->channel;
+	chan->pvdrm = pvdrm;
 	kref_init(&chan->ref);
 
 	if (idr_pre_get(&pvdrm->channels_idr, GFP_KERNEL) == 0)

@@ -70,6 +70,12 @@ struct pvdrm_mapping {
 	int32_t ref;
 };
 
+struct drm_pvdrm_file_open {
+};
+
+struct drm_pvdrm_file_release {
+};
+
 struct drm_pvdrm_gem_free {
 	uint32_t handle;
 };

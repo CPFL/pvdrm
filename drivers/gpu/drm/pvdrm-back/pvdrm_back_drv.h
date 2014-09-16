@@ -21,28 +21,63 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_CHANNEL_H_
-#define PVDRM_CHANNEL_H_
+#ifndef PVDRM_BACK_DRV_H_
+#define PVDRM_BACK_DRV_H_
+#include <linux/fs.h>
+#include <linux/kernel.h>
+#include <linux/wait.h>
 
-#include "drmP.h"
-#include "nouveau_drm.h"
+#include <asm/xen/hypervisor.h>
 
-#include "pvdrm_gem.h"
+#include "../pvdrm/pvdrm_slot.h"
+#include "../pvdrm/pvdrm_log.h"
 
-struct drm_nouveau_channel_alloc;
+struct pvdrm_back_device;
+struct xenbus_device;
 
-struct pvdrm_channel {
-	struct kref ref;
-	uint32_t channel;
-	uint32_t host;
-	struct pvdrm_device* pvdrm;
+struct pvdrm_back_file {
+	struct pvdrm_back_device* info;
+	struct file* filp;
+	int handle;
 };
 
-int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result);
-int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out);
-struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id);
-void pvdrm_channel_reference(struct pvdrm_channel* chan);
-void pvdrm_channel_unreference(struct pvdrm_channel* chan);
+struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info);
+void pvdrm_back_file_destroy(struct pvdrm_back_file* filp);
 
-#endif  /* PVDRM_CHANNEL_H_ */
+struct pvdrm_back_work {
+	struct work_struct base;
+	struct pvdrm_back_device* info;
+	struct pvdrm_slot* slot;
+};
+
+struct pvdrm_back_device {
+	struct xenbus_device* xbdev;
+	struct task_struct* thread;
+	struct pvdrm_back_file* file;
+	grant_ref_t ref;
+	struct pvdrm_mapped* mapped;
+	atomic_t get;
+	void* slot_addrs[PVDRM_SLOT_NR];
+	struct pvdrm_back_work works[PVDRM_SLOT_NR];
+	struct workqueue_struct* wq;
+	bool sequential;
+	struct list_head vmas;
+	struct idr file_idr;
+	spinlock_t file_lock;
+};
+
+struct pvdrm_back_vma {
+	struct vm_area_struct base;
+	struct list_head head;
+	struct vm_struct* area;
+	pte_t** pteps;
+	int* refs;
+	uint64_t map_handle;
+	uint32_t handle;
+	uint32_t pages;
+	struct drm_gem_object* obj;
+	struct pvdrm_back_device* info;
+};
+
+#endif  /* PVDRM_BACK_DRV_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

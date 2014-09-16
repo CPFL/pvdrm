@@ -68,7 +68,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 	/* FIXME: mmap list should be freed. */
 	if (obj->backing) {
+#if 0
+		/* FIXME: Free iomem mapped area asynchronously. */
 		free_pages(obj->backing, get_order(obj->base.size));
+#endif
 		obj->backing = 0;
 	}
 
