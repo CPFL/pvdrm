@@ -46,6 +46,11 @@
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
+int pvdrm_gem_refcount(const struct drm_pvdrm_gem_object* obj)
+{
+	return atomic_read(&obj->base.refcount.refcount);
+}
+
 int pvdrm_gem_object_init(struct drm_gem_object *obj)
 {
 	return 0;
@@ -100,7 +105,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	};
 	int ret = 0;
 
-	PVDRM_INFO("closing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("closing GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 

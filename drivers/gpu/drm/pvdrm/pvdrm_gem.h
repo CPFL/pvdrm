@@ -37,6 +37,7 @@ struct drm_pvdrm_gem_object {
 	unsigned long backing;  /* Backing stone for VRAM mapping. */
 };
 
+int pvdrm_gem_refcount(const struct drm_pvdrm_gem_object* obj);
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 int pvdrm_gem_object_init(struct drm_gem_object *obj);
 void pvdrm_gem_object_free(struct drm_gem_object *gobj);
