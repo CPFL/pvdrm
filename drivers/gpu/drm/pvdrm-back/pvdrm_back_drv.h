@@ -68,12 +68,15 @@ struct pvdrm_back_device {
 
 struct pvdrm_back_vma {
 	struct vm_area_struct base;
-	struct list_head next;
+	struct list_head head;
 	struct vm_struct* area;
 	pte_t** pteps;
 	int* refs;
 	uint64_t map_handle;
 	uint32_t handle;
+	uint32_t pages;
+	struct drm_gem_object* obj;
+	struct pvdrm_back_device* info;
 };
 
 #endif  /* PVDRM_BACK_DRV_H_ */

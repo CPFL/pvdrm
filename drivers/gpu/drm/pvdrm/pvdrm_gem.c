@@ -70,7 +70,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 	drm_gem_object_release(&obj->base);
 	if (obj->backing) {
+#if 0
+		/* FIXME: Free iomem mapped area asynchronously. */
 		free_pages(obj->backing, get_order(obj->base.size));
+#endif
 		obj->backing = 0;
 	}
 	if (obj->hash.key != -1) {
