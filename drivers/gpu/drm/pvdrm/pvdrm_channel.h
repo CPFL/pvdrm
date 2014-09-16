@@ -35,6 +35,7 @@ struct pvdrm_channel {
 	struct kref ref;
 	uint32_t channel;
 	uint32_t host;
+	struct pvdrm_device* pvdrm;
 };
 
 int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result);
