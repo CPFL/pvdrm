@@ -67,12 +67,12 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
 
 	/* FIXME: mmap list should be freed. */
-
-	drm_gem_object_release(&obj->base);
 	if (obj->backing) {
 		free_pages(obj->backing, get_order(obj->base.size));
 		obj->backing = 0;
 	}
+
+	drm_gem_object_release(&obj->base);
 	if (obj->hash.key != -1) {
 		spin_lock(&pvdrm->mh2obj_lock);
 		drm_ht_remove_item(&pvdrm->mh2obj, &obj->hash);
@@ -84,7 +84,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	PVDRM_DEBUG("opening GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("opening GEM %llx.\n", (unsigned long long)obj->host);
 	return 0;
 }
 
@@ -97,7 +97,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 	};
 	int ret = 0;
 
-	PVDRM_DEBUG("closing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("closing GEM %llx.\n", (unsigned long long)obj->host);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 }
 
