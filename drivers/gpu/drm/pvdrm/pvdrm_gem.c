@@ -66,7 +66,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
-	PVDRM_DEBUG("freeing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("freeing GEM %llx.\n", (unsigned long long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -92,12 +92,13 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	PVDRM_INFO("opening GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("opening GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
 	return 0;
 }
 
 void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 {
+#if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	struct drm_device *dev = obj->base.dev;
 	struct drm_gem_close req = {
@@ -107,6 +108,7 @@ void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
 
 	PVDRM_INFO("closing GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
 	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
+#endif
 }
 
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file *file, uint32_t host, uint32_t size)
@@ -195,6 +197,8 @@ int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct d
 	req_out->info.handle = obj->handle;
 
 	*result = obj;
+
+	PVDRM_INFO("Allocating %u with refcount:(%d)\n", obj->host, pvdrm_gem_refcount(obj));
 	return 0;
 }
 
@@ -247,7 +251,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 	vma->vm_private_data = obj;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
-	drm_gem_object_reference(&obj->base);
+	// drm_gem_object_reference(&obj->base);
 
 	drm_gem_vm_open(vma);
 
