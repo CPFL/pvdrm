@@ -25,6 +25,7 @@
 #include <linux/console.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/wait.h>
 
 #include <xen/xen.h>
 #include <xen/xenbus.h>
@@ -166,6 +167,11 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 
 	idr_init(&pvdrm->channels_idr);
 	spin_lock_init(&pvdrm->channels_lock);
+	pvdrm->wq = alloc_workqueue("pvdrm", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
+	if (!pvdrm->wq) {
+		BUG();
+	}
+
 
 	PVDRM_INFO("setting counter-ref.\n");
 

@@ -47,6 +47,7 @@ struct pvdrm_device {
 	spinlock_t mh2obj_lock;
 	struct idr channels_idr;
 	spinlock_t channels_lock;
+	struct workqueue_struct* wq;
 };
 
 #endif  /* PVDRM_DRM_H_ */
