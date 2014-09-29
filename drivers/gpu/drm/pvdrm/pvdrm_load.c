@@ -27,6 +27,7 @@
 #include "pvdrm_load.h"
 #include "pvdrm_log.h"
 #include "pvdrm_slot.h"
+#include "pvdrm_nouveau_abi16.h"
 
 static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
 {
@@ -77,7 +78,28 @@ int pvdrm_unload(struct drm_device *dev)
 
 int pvdrm_open(struct drm_device *dev, struct drm_file *file)
 {
-	return 0;
+	struct drm_pvdrm_file_open req = { 0 };
+	struct pvdrm_fpriv* fpriv = NULL;
+	int ret = 0;
+	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_FILE_OPEN, &req, sizeof(struct drm_pvdrm_file_open));
+	if (ret) {
+		goto fail_hypercall;
+	}
+
+	fpriv = kzalloc(sizeof(*fpriv), GFP_KERNEL);
+	if (!fpriv) {
+		ret = -ENOMEM;
+		goto fail_hypercall;
+	}
+
+	fpriv->host = req.file;
+
+	file->driver_priv = fpriv;
+
+	return ret;
+
+fail_hypercall:
+	return ret;
 }
 
 void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
@@ -86,6 +108,11 @@ void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
 
 void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
 {
+	struct pvdrm_fpriv* fpriv = file->driver_priv;
+	struct drm_pvdrm_file_close req = {
+		.file = fpriv->host,
+	};
+	pvdrm_nouveau_abi16_ioctl(dev, PVDRM_FILE_CLOSE, &req, sizeof(struct drm_pvdrm_file_close));
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */

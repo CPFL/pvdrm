@@ -39,6 +39,9 @@
 #include "pvdrm_fence.h"
 
 #define PVDRM_LIST_OPS(V) \
+        /* file operations. */\
+        V(PVDRM_FILE_OPEN)\
+        V(PVDRM_FILE_CLOSE)\
 	/* ioctls. */\
         V(PVDRM_IOCTL_NOUVEAU_GETPARAM)\
         /* PVDRM_IOCTL_NOUVEAU_SETPARAM */\
@@ -96,9 +99,11 @@ struct pvdrm_mapping {
 };
 
 struct drm_pvdrm_file_open {
+	int32_t file;
 };
 
-struct drm_pvdrm_file_release {
+struct drm_pvdrm_file_close {
+	int32_t file;
 };
 
 struct drm_pvdrm_gem_free {

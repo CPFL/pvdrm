@@ -598,6 +598,12 @@ static void process_slot(struct work_struct* arg)
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
+	case PVDRM_FILE_OPEN:
+		break;
+
+	case PVDRM_FILE_CLOSE:
+		break;
+
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
 		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
 		break;

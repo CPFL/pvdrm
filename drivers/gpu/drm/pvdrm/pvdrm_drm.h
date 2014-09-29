@@ -50,5 +50,9 @@ struct pvdrm_device {
 	struct workqueue_struct* wq;
 };
 
+struct pvdrm_fpriv {
+	int32_t host;
+};
+
 #endif  /* PVDRM_DRM_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */
