@@ -80,8 +80,12 @@ static const char* const PVDRM_OPS[] = {
 
 static inline const char* pvdrm_op_str(pvdrm_op_t op)
 {
-        if (PVDRM_OP_FIRST <= op && op <= PVDRM_OP_LAST) {
-                return PVDRM_OPS[op];
+        const char* ptr = NULL;
+        if (op < ARRAY_SIZE(PVDRM_OPS)) {
+                ptr = PVDRM_OPS[op];
+        }
+        if (ptr) {
+                return ptr;
         }
         return "UNKNOWN";
 }
