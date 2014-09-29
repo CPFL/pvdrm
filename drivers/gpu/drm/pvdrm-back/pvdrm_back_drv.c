@@ -585,7 +585,7 @@ static void process_slot(struct work_struct* arg)
 	slot = work->slot;
 	BUG_ON(!slot);
 
-	PVDRM_DEBUG("processing slot %d\n", slot->code);
+	PVDRM_DEBUG("processing slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
 	/* msleep(1000); */
 
 	ret = 0;
@@ -637,8 +637,8 @@ static void process_slot(struct work_struct* arg)
 			struct drm_pvdrm_gem_free* req = pvdrm_slot_payload(slot);
 			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
 			if (!obj) {
-				PVDRM_INFO("Freeing handle:(%x)\n", req->handle);
-				return -EINVAL;
+				PVDRM_WARN("Invalid freeing handle:(%x)\n", req->handle);
+				return;
 			}
 			vma = pvdrm_back_vma_find_with_handle(info, req->handle);
 			if (vma) {
@@ -658,10 +658,6 @@ static void process_slot(struct work_struct* arg)
 		}
 		break;
 
-	case PVDRM_GEM_NOUVEAU_GEM_CLOSE:
-		/* ret = drm_ioctl(info->file->filp, DRM_IOCTL_GEM_CLOSE, (unsigned long)pvdrm_slot_payload(slot)); */
-		break;
-
 	case PVDRM_GEM_NOUVEAU_GEM_MMAP:
 		/* FIXME: Need to check... */
 		ret = process_mmap(info, slot);
@@ -673,7 +669,7 @@ static void process_slot(struct work_struct* arg)
 		break;
 
 	default:
-		PVDRM_DEBUG("unhandled slot %d\n", slot->code);
+		PVDRM_DEBUG("unhandled slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
 		break;
 	}
 	set_fs(fs);
@@ -682,7 +678,7 @@ static void process_slot(struct work_struct* arg)
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
-	PVDRM_DEBUG("slot %d is done\n", slot->code);
+	PVDRM_DEBUG("slot %s:(%d) is done\n", pvdrm_op_str(slot->code), slot->code);
 }
 
 static int polling(void *arg)
