@@ -84,7 +84,7 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 	kref_init(&chan->ref);
 
 	if (idr_pre_get(&pvdrm->channels_idr, GFP_KERNEL) == 0) {
-		kmem_cache_free(pvdrm->channel_cache, chan);
+		pvdrm_channel_unreference(chan);
 		return -ENOMEM;
 	}
 
@@ -95,7 +95,7 @@ again:
 	if (ret == -EAGAIN) {
 		goto again;
 	} else if (ret) {
-		kmem_cache_free(pvdrm->channel_cache, chan);
+		pvdrm_channel_unreference(chan);
 		return ret;
 	}
 
