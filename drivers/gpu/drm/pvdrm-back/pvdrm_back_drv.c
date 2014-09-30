@@ -513,14 +513,6 @@ static void process_slot(struct work_struct* arg)
 
 			drm_gem_object_unreference(obj);
 			ret = drm_gem_handle_delete(file_priv, req->handle);
-#if 0
-			if (obj) {
-				drm_gem_object_handle_free(obj);
-				drm_gem_object_free(&obj->refcount);
-				drm_gem_object_unreference(obj);
-			}
-			ret = 0;
-#endif
 		}
 		break;
 
