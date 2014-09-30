@@ -60,16 +60,6 @@ typedef struct {
 
 static pvdrm_back_core_t* pvdrm_back_core;
 
-struct drm_file* pvdrm_back_file_to_drm_file(struct pvdrm_back_file* file)
-{
-	return file->filp->private_data;
-}
-
-struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back_file* file)
-{
-	return pvdrm_back_file_to_drm_file(file)->minor->dev;
-}
-
 static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, const struct pvdrm_slot* slot)
 {
 	return info->slot_addrs[pvdrm_slot_id(info->mapped, slot)];
@@ -80,163 +70,6 @@ static struct pvdrm_back_work* pvdrm_back_slot_work(struct pvdrm_back_device* in
 	return &info->works[pvdrm_slot_id(info->mapped, slot)];
 }
 
-static struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_device* info, uint64_t map_handle)
-{
-	struct list_head *listptr;
-	struct pvdrm_back_vma* vma = NULL;
-	list_for_each(listptr, &info->vmas) {
-		vma = list_entry(listptr, struct pvdrm_back_vma, head);
-		if (vma->map_handle == map_handle) {
-			return vma;
-		}
-	}
-	return NULL;
-}
-
-static struct pvdrm_back_vma* pvdrm_back_vma_find_with_handle(struct pvdrm_back_device* info, uint64_t handle)
-{
-	struct list_head *listptr;
-	struct pvdrm_back_vma* vma = NULL;
-	list_for_each(listptr, &info->vmas) {
-		vma = list_entry(listptr, struct pvdrm_back_vma, head);
-		if (vma->handle == handle) {
-			return vma;
-		}
-	}
-	return NULL;
-}
-
-static struct pvdrm_back_vma* pvdrm_back_vma_find_with_gem_object(struct pvdrm_back_device* info, const struct drm_gem_object* obj)
-{
-	struct list_head *listptr;
-	struct pvdrm_back_vma* vma = NULL;
-	list_for_each(listptr, &info->vmas) {
-		vma = list_entry(listptr, struct pvdrm_back_vma, head);
-		if (vma->obj == obj) {
-			return vma;
-		}
-	}
-	return NULL;
-}
-
-static void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma)
-{
-	struct pvdrm_back_device* info = NULL;
-	uint32_t i;
-
-	PVDRM_INFO("Freeing VMA\n");
-
-	if (!vma) {
-		return;
-	}
-
-	info = vma->info;
-	if (!info) {
-		kfree(vma);
-		return;
-	}
-
-	PVDRM_INFO("Freeing grant refs\n");
-	for (i = 0; i < vma->pages; ++i) {
-		int ref = vma->refs[i];
-		if (ref > 0) {
-			/* FIXME: free on guest. */
-			// gnttab_end_foreign_access_ref(ref, 0);
-			// gnttab_free_grant_reference(ref);
-		}
-	}
-
-	if (vma->area) {
-		free_vm_area(vma->area);
-	}
-
-	if (vma->pteps) {
-		kfree(vma->pteps);
-	}
-
-	if (vma->refs) {
-		kfree(vma->refs);
-	}
-
-	{
-		struct pvdrm_back_vma* pos;
-		struct pvdrm_back_vma* temp;
-		list_for_each_entry_safe(pos, temp, &info->vmas, head) {
-			if (pos == vma) {
-				list_del(&pos->head);
-				kfree(pos);
-				break;
-			}
-		}
-	}
-}
-
-
-static struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
-{
-	unsigned long pages;
-	unsigned long long size;
-	uintptr_t addr;
-	struct pvdrm_back_vma* vma;
-	struct drm_gem_object* obj = NULL;
-	struct drm_device* dev = NULL;
-	struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
-
-	dev = pvdrm_back_file_to_drm_device(file);
-
-	obj = drm_gem_object_lookup(dev, file_priv, handle);
-	if (!obj) {
-		return NULL;
-	}
-
-	size = (end - start);
-	pages = size >> PAGE_SHIFT;
-
-	vma = kzalloc(sizeof(struct pvdrm_back_vma), GFP_KERNEL);
-	if (!vma) {
-		BUG();
-	}
-
-	vma->map_handle = map_handle;
-	vma->pages = pages;
-	vma->pteps = kzalloc(sizeof(pte_t*) * (pages + 1), GFP_KERNEL);
-	vma->obj = obj;
-	vma->handle = handle;
-	if (!vma->pteps) {
-		BUG();
-	}
-
-	vma->refs = kzalloc(sizeof(int) * (pages + 1), GFP_KERNEL);
-	if (!vma->refs) {
-		BUG();
-	}
-
-	vma->area = alloc_vm_area(size, vma->pteps);
-	if (!vma->area) {
-		BUG();
-	}
-	addr = (uintptr_t)vma->area->addr;
-
-	PVDRM_DEBUG("allocated area addresss size:(%llu), addr:(0x%llx), map_handle:(%llu).\n", (unsigned long long)size, (unsigned long long)addr, map_handle);
-
-	vma->base.vm_mm = current->active_mm;
-	vma->base.vm_start = (unsigned long)addr;
-	vma->base.vm_end = ((unsigned long)addr) + size;
-	vma->base.vm_flags = flags;
-	vma->base.vm_page_prot = pgprot_writecombine(vm_get_page_prot(flags));
-	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
-	vma->base.vm_pgoff = map_handle >> PAGE_SHIFT;
-	vma->base.vm_file = file->filp;
-
-	list_add(&vma->head, &info->vmas);
-	vma->info = info;
-
-	PVDRM_INFO("New vma:(0x%lx) <-> obj:(0x%lx)\n", (unsigned long)vma, (unsigned long)obj);
-
-	drm_gem_object_unreference(obj);
-
-	return vma;
-}
 
 static uint64_t pvdrm_back_count(struct pvdrm_back_device* info)
 {
@@ -466,7 +299,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	struct vm_fault vmf;
 	bool is_iomem = req->domain & NOUVEAU_GEM_DOMAIN_VRAM;
 
-	vma = pvdrm_back_vma_find(info, req->map_handle);
+	vma = pvdrm_back_vma_find(file, req->map_handle);
 	if (!vma) {
 		return -EINVAL;
 	}
@@ -669,7 +502,7 @@ static void process_slot(struct work_struct* arg)
 				PVDRM_WARN("Invalid freeing handle:(%x)\n", req->handle);
 				return;
 			}
-			vma = pvdrm_back_vma_find_with_handle(info, req->handle);
+			vma = pvdrm_back_vma_find_with_handle(file, req->handle);
 			if (vma) {
 				pvdrm_back_vma_destroy(vma);
 			}
@@ -800,7 +633,6 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	}
 	info->xbdev = xbdev;
 	dev_set_drvdata(&xbdev->dev, info);
-	INIT_LIST_HEAD(&info->vmas);
 	idr_init(&info->file_idr);
 	spin_lock_init(&info->file_lock);
 

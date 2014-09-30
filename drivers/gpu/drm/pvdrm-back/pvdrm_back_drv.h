@@ -39,6 +39,7 @@ struct pvdrm_back_file {
 	struct pvdrm_back_device* info;
 	struct file* filp;
 	int handle;
+	struct list_head vmas;
 };
 
 struct pvdrm_back_file* pvdrm_back_file_lookup(struct pvdrm_back_device* info, int32_t handle);
@@ -61,7 +62,6 @@ struct pvdrm_back_device {
 	struct pvdrm_back_work works[PVDRM_SLOT_NR];
 	struct workqueue_struct* wq;
 	bool sequential;
-	struct list_head vmas;
 	struct idr file_idr;
 	spinlock_t file_lock;
 };
@@ -76,8 +76,24 @@ struct pvdrm_back_vma {
 	uint32_t handle;
 	uint32_t pages;
 	struct drm_gem_object* obj;
-	struct pvdrm_back_device* info;
+	struct pvdrm_back_file* file;
 };
+
+struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_file* file, uint64_t map_handle);
+struct pvdrm_back_vma* pvdrm_back_vma_find_with_handle(struct pvdrm_back_file* file, uint64_t handle);
+struct pvdrm_back_vma* pvdrm_back_vma_find_with_gem_object(struct pvdrm_back_file* file, const struct drm_gem_object* obj);
+struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle);
+void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma);
+
+static inline struct drm_file* pvdrm_back_file_to_drm_file(struct pvdrm_back_file* file)
+{
+	return file->filp->private_data;
+}
+
+static inline struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back_file* file)
+{
+	return pvdrm_back_file_to_drm_file(file)->minor->dev;
+}
 
 #endif  /* PVDRM_BACK_DRV_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

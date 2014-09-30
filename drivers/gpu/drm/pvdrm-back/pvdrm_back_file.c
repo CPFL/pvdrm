@@ -79,26 +79,39 @@ again:
 		return NULL;
 	}
 
+
+	INIT_LIST_HEAD(&pvfile->vmas);
 	return pvfile;
 }
 
-void pvdrm_back_file_destroy(struct pvdrm_back_file* filp)
+void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 {
-	if (filp) {
-		mm_segment_t fs;
-		fs = get_fs();
-		set_fs(get_ds());
-		filp_close(filp->filp, NULL);
-		set_fs(fs);
+	mm_segment_t fs;
 
-		if (filp->handle > 0) {
-			spin_lock(&filp->info->file_lock);
-			idr_remove(&filp->info->file_idr, filp->handle);
-			spin_unlock(&filp->info->file_lock);
-		}
-
-		kfree(filp);
+	if (!file) {
+		return;
 	}
+
+	fs = get_fs();
+	set_fs(get_ds());
+	filp_close(file->filp, NULL);
+	set_fs(fs);
+
+	if (file->handle > 0) {
+		spin_lock(&file->info->file_lock);
+		idr_remove(&file->info->file_idr, file->handle);
+		spin_unlock(&file->info->file_lock);
+	}
+
+	{
+		struct pvdrm_back_vma* pos;
+		struct pvdrm_back_vma* temp;
+		list_for_each_entry_safe(pos, temp, &file->vmas, head) {
+			pvdrm_back_vma_destroy(pos);  /* vma is automatically unlinked by this call. */
+		}
+	}
+
+	kfree(file);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */
