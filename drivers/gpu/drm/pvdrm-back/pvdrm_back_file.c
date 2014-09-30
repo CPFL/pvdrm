@@ -43,25 +43,15 @@ struct pvdrm_back_file* pvdrm_back_file_lookup(struct pvdrm_back_device* info, i
 
 struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info)
 {
-	struct file* filp = NULL;
 	struct pvdrm_back_file* pvfile = NULL;
 	int ret = 0;
-	mm_segment_t fs;
-
-	fs = get_fs();
-	set_fs(get_ds());
-	/* FIXME: Currently we use this path directly. We need to implement
-	 * discovery functionality.*/
-	filp = filp_open("/dev/dri/card0", O_RDWR, 0);
-	set_fs(fs);
-	PVDRM_INFO("Opened drm device.\n");
 
 	pvfile = kzalloc(sizeof(*pvfile), GFP_KERNEL);
 	if (!pvfile) {
 		return NULL;
 	}
 	pvfile->info = info;
-	pvfile->filp = filp;
+	pvfile->filp = NULL;
 	pvfile->handle = 0;
 
 	if (idr_pre_get(&info->file_idr, GFP_KERNEL) == 0) {
@@ -79,28 +69,43 @@ again:
 		return NULL;
 	}
 
-
 	INIT_LIST_HEAD(&pvfile->vmas);
 	return pvfile;
 }
 
+struct pvdrm_back_file* pvdrm_back_file_open_if_necessary(struct pvdrm_back_device* info, int32_t handle)
+{
+	struct pvdrm_back_file* file = pvdrm_back_file_lookup(info, handle);
+	if (!file) {
+		return file;
+	}
+	/* Open file lazily. */
+	if (!file->filp) {
+		struct file* filp = NULL;
+		mm_segment_t fs = get_fs();
+		set_fs(get_ds());
+		/* FIXME: Currently we use this path directly. We need to implement
+		 * discovery functionality.*/
+		filp = filp_open("/dev/dri/card0", O_RDWR, 0);
+		set_fs(fs);
+		PVDRM_INFO("Opened drm device.\n");
+		file->filp = filp;
+	}
+	return file;
+}
+
 void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 {
-	mm_segment_t fs;
 
 	if (!file) {
 		return;
 	}
 
-	fs = get_fs();
-	set_fs(get_ds());
-	filp_close(file->filp, NULL);
-	set_fs(fs);
-
-	if (file->handle > 0) {
-		spin_lock(&file->info->file_lock);
-		idr_remove(&file->info->file_idr, file->handle);
-		spin_unlock(&file->info->file_lock);
+	if (file->filp) {
+		mm_segment_t fs = get_fs();
+		set_fs(get_ds());
+		filp_close(file->filp, NULL);
+		set_fs(fs);
 	}
 
 	{
@@ -109,6 +114,12 @@ void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 		list_for_each_entry_safe(pos, temp, &file->vmas, head) {
 			pvdrm_back_vma_destroy(pos);  /* vma is automatically unlinked by this call. */
 		}
+	}
+
+	if (file->handle > 0) {
+		spin_lock(&file->info->file_lock);
+		idr_remove(&file->info->file_idr, file->handle);
+		spin_unlock(&file->info->file_lock);
 	}
 
 	kfree(file);

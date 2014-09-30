@@ -425,7 +425,7 @@ static void process_slot(struct work_struct* arg)
 	/* set_fs(get_ds()); */
 
 	if (slot->file) {
-		file = pvdrm_back_file_lookup(info, slot->file);
+		file = pvdrm_back_file_open_if_necessary(info, slot->file);
 		if (!file) {
 			ret = -EINVAL;
 			goto done;
