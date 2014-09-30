@@ -48,7 +48,7 @@ static void pvdrm_channel_release(struct kref* ref)
 	idr_remove(&pvdrm->channels_idr, chan->channel);
 	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
 
-        kfree(chan);
+	kmem_cache_free(pvdrm->channel_cache, chan);
 }
 
 void pvdrm_channel_reference(struct pvdrm_channel* chan)
@@ -63,28 +63,30 @@ void pvdrm_channel_unreference(struct pvdrm_channel* chan)
 
 int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_channel_alloc* req_out, struct pvdrm_channel** result)
 {
-	struct pvdrm_channel *chan;
-	struct pvdrm_device* pvdrm;
+	struct pvdrm_channel* chan;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	int ret = 0;
 	unsigned long flags;
 
-	pvdrm = drm_device_to_pvdrm(dev);
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, req_out, sizeof(struct drm_nouveau_channel_alloc));
 	if (ret) {
 		return ret;
 	}
 
-	chan = kzalloc(sizeof(struct pvdrm_channel), GFP_KERNEL);
-	if (!chan)
+	chan = kmem_cache_alloc(pvdrm->channel_cache, GFP_KERNEL);
+	if (!chan) {
 		return -ENOMEM;
+	}
 
 	chan->host = req_out->channel;
 	chan->pvdrm = pvdrm;
 	kref_init(&chan->ref);
 
-	if (idr_pre_get(&pvdrm->channels_idr, GFP_KERNEL) == 0)
+	if (idr_pre_get(&pvdrm->channels_idr, GFP_KERNEL) == 0) {
+		kmem_cache_free(pvdrm->channel_cache, chan);
 		return -ENOMEM;
+	}
 
 again:
 	spin_lock_irqsave(&pvdrm->channels_lock, flags);
@@ -93,6 +95,7 @@ again:
 	if (ret == -EAGAIN) {
 		goto again;
 	} else if (ret) {
+		kmem_cache_free(pvdrm->channel_cache, chan);
 		return ret;
 	}
 
@@ -112,10 +115,10 @@ int pvdrm_channel_free(struct drm_device* dev, struct drm_file* file, struct drm
 
 	pvdrm = drm_device_to_pvdrm(dev);
         chan = pvdrm_channel_lookup(dev, req_out->channel);
-        if (!chan) {
+	if (!chan) {
 		PVDRM_ERROR("Freeing channel %u.\n", req_out->channel);
 		return -EINVAL;
-        }
+	}
 
 	PVDRM_DEBUG("Freeing guest channel %d with host %d.\n", chan->channel, chan->host);
 	req_out->channel = chan->host;
@@ -128,10 +131,10 @@ int pvdrm_channel_free(struct drm_device* dev, struct drm_file* file, struct drm
 struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id)
 {
 	unsigned long flags;
-        struct pvdrm_device* pvdrm = NULL;
-        struct pvdrm_channel* chan = NULL;
+	struct pvdrm_device* pvdrm = NULL;
+	struct pvdrm_channel* chan = NULL;
 
-        pvdrm = drm_device_to_pvdrm(dev);
+	pvdrm = drm_device_to_pvdrm(dev);
 
 	spin_lock_irqsave(&pvdrm->channels_lock, flags);
 	chan = idr_find(&pvdrm->channels_idr, id);

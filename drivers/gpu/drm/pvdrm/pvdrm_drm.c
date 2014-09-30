@@ -44,6 +44,7 @@
 #include "drm.h"
 
 #include "pvdrm_cast.h"
+#include "pvdrm_channel.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_irq.h"
@@ -171,7 +172,8 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	if (!pvdrm->wq) {
 		BUG();
 	}
-
+	pvdrm->gem_object_cache = kmem_cache_create("pvdrm_gem_object_cache", sizeof(struct drm_pvdrm_gem_object), 0, 0, NULL);
+	pvdrm->channel_cache = kmem_cache_create("pvdrm_channel_cache", sizeof(struct pvdrm_channel), 0, 0, NULL);
 
 	PVDRM_INFO("setting counter-ref.\n");
 

@@ -65,11 +65,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		.handle = obj->host,
 	};
 	int ret = 0;
-	struct pvdrm_device* pvdrm = NULL;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 
 	PVDRM_INFO("freeing GEM %llx.\n", (unsigned long long)obj->host);
 
-	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
 
 	/* FIXME: mmap list should be freed. */
@@ -88,7 +87,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		drm_ht_remove_item(&pvdrm->mh2obj, &obj->hash);
 		spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 	}
-	kfree(obj);
+	kmem_cache_free(pvdrm->gem_object_cache, obj);
 }
 
 int pvdrm_gem_object_open(struct drm_gem_object* gem, struct drm_file* file)
@@ -108,8 +107,9 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 {
 	int ret = 0;
 	struct drm_pvdrm_gem_object *obj;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 
-	obj = kzalloc(sizeof(struct drm_pvdrm_gem_object), GFP_KERNEL);
+	obj = kmem_cache_alloc(pvdrm->gem_object_cache, GFP_KERNEL);
 	if (!obj) {
 		goto free;
 	}
@@ -119,16 +119,19 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 		goto free;
 	}
 
+	/* Store host information. */
+	obj->handle = (uint32_t)-1;
+	obj->host = host;
+	obj->domain = 0;
+	obj->map_handle = 0;
+	obj->backing = 0;
+	obj->hash.key = -1;
+	obj->file = file;
+
 	if (dev->driver->gem_init_object != NULL &&
 	    dev->driver->gem_init_object(&obj->base) != 0) {
 		goto fput;
 	}
-
-	/* Store host information. */
-	obj->handle = (uint32_t)-1;
-	obj->host = host;
-	obj->hash.key = -1;
-	obj->file = file;
 
 	/* FIXME: These code are moved from pvdrm_gem_object_new. */
 	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
@@ -145,7 +148,9 @@ fput:
 	/* Object_init mangles the global counters - readjust them. */
 	fput(obj->base.filp);
 free:
-	kfree(obj);
+	if (obj) {
+		kmem_cache_free(pvdrm->gem_object_cache, obj);
+	}
 	return NULL;
 }
 
