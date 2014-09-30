@@ -74,7 +74,7 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 		return ret;
 	}
 
-	chan = kmem_cache_alloc(pvdrm->channel_cache, GFP_KERNEL);
+	chan = kmem_cache_zalloc(pvdrm->channel_cache, GFP_KERNEL);
 	if (!chan) {
 		return -ENOMEM;
 	}
