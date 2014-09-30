@@ -48,8 +48,6 @@ struct pvdrm_device {
 	struct idr channels_idr;
 	spinlock_t channels_lock;
 	struct workqueue_struct* wq;
-	struct kmem_cache* gem_object_cache;
-	struct kmem_cache* channel_cache;
 };
 
 struct pvdrm_fpriv {
