@@ -83,9 +83,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 
 	drm_gem_object_release(&obj->base);
 	if (obj->hash.key != -1) {
-		spin_lock(&pvdrm->mh2obj_lock);
+		unsigned long flags;
+		spin_lock_irqsave(&pvdrm->mh2obj_lock, flags);
 		drm_ht_remove_item(&pvdrm->mh2obj, &obj->hash);
-		spin_unlock(&pvdrm->mh2obj_lock);
+		spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 	}
 	kfree(obj);
 }
@@ -152,6 +153,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 {
 	struct pvdrm_device* pvdrm = NULL;
 	int ret = 0;
+	unsigned long flags;
 	pvdrm = drm_device_to_pvdrm(dev);
 	/* Setup mh2obj ht. */
 	/* FIXME: lookup is needed? (for duplicate items) */
@@ -160,10 +162,10 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->hash.key = info->map_handle >> PAGE_SHIFT;
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
-	spin_lock(&pvdrm->mh2obj_lock);
+	spin_lock_irqsave(&pvdrm->mh2obj_lock, flags);
 	PVDRM_DEBUG("registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
-	spin_unlock(&pvdrm->mh2obj_lock);
+	spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 	if (ret) {
 		BUG();
 		return;
@@ -204,6 +206,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, str
 int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 {
 	int ret = 0;
+	unsigned long flags;
 	struct drm_file* file = filp->private_data;
 	struct drm_device* dev = file->minor->dev;
 	struct drm_pvdrm_gem_mmap req;
@@ -217,21 +220,21 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 		return drm_mmap(filp, vma);
 	}
 
-	spin_lock(&pvdrm->mh2obj_lock);
+	spin_lock_irqsave(&pvdrm->mh2obj_lock, flags);
 	PVDRM_DEBUG("lookup %lx\n", vma->vm_pgoff);
 	if (drm_ht_find_item(&pvdrm->mh2obj, vma->vm_pgoff, &hash)) {
-		spin_unlock(&pvdrm->mh2obj_lock);
+		spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 		BUG();
 		return -EINVAL;
 	}
 
 	obj = drm_hash_entry(hash, struct drm_pvdrm_gem_object, hash);
 	if (!obj) {
-		spin_unlock(&pvdrm->mh2obj_lock);
+		spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 		BUG();
 		return -EINVAL;
 	}
-	spin_unlock(&pvdrm->mh2obj_lock);
+	spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 
 	/* This gem is iomem. */
 	if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {

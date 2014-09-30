@@ -39,13 +39,14 @@
 
 static void pvdrm_channel_release(struct kref* ref)
 {
+	unsigned long flags;
 	struct pvdrm_channel* chan = container_of(ref, struct pvdrm_channel, ref);
 	struct pvdrm_device* pvdrm = chan->pvdrm;
 	PVDRM_DEBUG("Deallocating channel %d with host %d.\n", chan->channel, chan->host);
 
-	spin_lock(&pvdrm->channels_lock);
+	spin_lock_irqsave(&pvdrm->channels_lock, flags);
 	idr_remove(&pvdrm->channels_idr, chan->channel);
-	spin_unlock(&pvdrm->channels_lock);
+	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
 
         kfree(chan);
 }
@@ -65,6 +66,7 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 	struct pvdrm_channel *chan;
 	struct pvdrm_device* pvdrm;
 	int ret = 0;
+	unsigned long flags;
 
 	pvdrm = drm_device_to_pvdrm(dev);
 
@@ -85,9 +87,9 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 		return -ENOMEM;
 
 again:
-	spin_lock(&pvdrm->channels_lock);
+	spin_lock_irqsave(&pvdrm->channels_lock, flags);
 	ret = idr_get_new_above(&pvdrm->channels_idr, chan, 1, (int *)&chan->channel);
-	spin_unlock(&pvdrm->channels_lock);
+	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
 	if (ret == -EAGAIN) {
 		goto again;
 	} else if (ret) {
@@ -125,20 +127,21 @@ int pvdrm_channel_free(struct drm_device* dev, struct drm_file* file, struct drm
 
 struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id)
 {
+	unsigned long flags;
         struct pvdrm_device* pvdrm = NULL;
         struct pvdrm_channel* chan = NULL;
 
         pvdrm = drm_device_to_pvdrm(dev);
 
-	spin_lock(&pvdrm->channels_lock);
+	spin_lock_irqsave(&pvdrm->channels_lock, flags);
 	chan = idr_find(&pvdrm->channels_idr, id);
 	if (chan == NULL) {
-		spin_unlock(&pvdrm->channels_lock);
+		spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
 		PVDRM_ERROR("Look up invalid channel %u.\n", id);
 		return NULL;
 	}
 	pvdrm_channel_reference(chan);
-	spin_unlock(&pvdrm->channels_lock);
+	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
         return chan;
 }
 
