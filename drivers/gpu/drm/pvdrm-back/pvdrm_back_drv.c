@@ -598,10 +598,27 @@ static void process_slot(struct work_struct* arg)
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
-	case PVDRM_FILE_OPEN:
+	case PVDRM_FILE_OPEN: {
+			struct pvdrm_back_file* file = pvdrm_back_file_new(info);
+			struct drm_pvdrm_file_open* req = pvdrm_slot_payload(slot);
+			if (!file) {
+				ret = -ENOMEM;
+				break;
+			}
+			req->file = file->handle;
+			ret = 0;
+		}
 		break;
 
-	case PVDRM_FILE_CLOSE:
+	case PVDRM_FILE_CLOSE: {
+			struct drm_pvdrm_file_close* req = pvdrm_slot_payload(slot);
+			struct pvdrm_back_file* file = pvdrm_back_file_lookup(info, req->file);
+			if (!file) {
+				ret = -EINVAL;
+				break;
+			}
+			pvdrm_back_file_destroy(file);
+		}
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:

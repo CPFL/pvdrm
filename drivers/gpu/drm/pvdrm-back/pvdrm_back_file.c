@@ -27,6 +27,20 @@
 
 #include "pvdrm_back_drv.h"
 
+struct pvdrm_back_file* pvdrm_back_file_lookup(struct pvdrm_back_device* info, int32_t handle)
+{
+	struct pvdrm_back_file* file = NULL;
+	spin_lock(&info->file_lock);
+	file = idr_find(&info->file_idr, handle);
+	if (file == NULL) {
+		spin_unlock(&info->file_lock);
+		PVDRM_ERROR("Look up invalid file %d.\n", handle);
+		return NULL;
+	}
+	spin_unlock(&info->file_lock);
+        return file;
+}
+
 struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info)
 {
 	struct file* filp = NULL;

@@ -41,6 +41,7 @@ struct pvdrm_back_file {
 	int handle;
 };
 
+struct pvdrm_back_file* pvdrm_back_file_lookup(struct pvdrm_back_device* info, int32_t handle);
 struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info);
 void pvdrm_back_file_destroy(struct pvdrm_back_file* filp);
 
