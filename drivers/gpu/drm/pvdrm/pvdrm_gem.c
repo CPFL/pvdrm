@@ -109,7 +109,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 	struct drm_pvdrm_gem_object *obj;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 
-	obj = kmem_cache_zalloc(pvdrm->gem_object_cache, GFP_KERNEL);
+	obj = kmem_cache_alloc(pvdrm->gem_object_cache, GFP_KERNEL);
 	if (!obj) {
 		goto free;
 	}
