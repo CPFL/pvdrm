@@ -181,12 +181,13 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 	return 1;
 }
 
-int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_pushbuf* req_out)
+int pvdrm_pushbuf(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_gem_pushbuf* req_out)
 {
 	struct pvdrm_device* pvdrm;
 	struct pvdrm_channel* chan;
 	int ret = 0;
 	struct xenbus_device* xbdev = NULL;
+	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(file);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	xbdev = pvdrm_to_xbdev(pvdrm);
@@ -198,14 +199,8 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 	req_out->channel = chan->host;
 
 	if (req_out->nr_push == 0) {
-		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm);
 		PVDRM_DEBUG("pushbuf with no buffers...\n");
-		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
-		memcpy(pvdrm_slot_payload(slot), req_out, sizeof(struct drm_nouveau_gem_pushbuf));
-		ret = pvdrm_slot_request(pvdrm, slot);
-		memcpy(req_out, pvdrm_slot_payload(slot), sizeof(struct drm_nouveau_gem_pushbuf));
-		ret = slot->ret;
-		pvdrm_slot_free(pvdrm, slot);
+		pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF, req_out, sizeof(struct drm_nouveau_gem_pushbuf));
 		goto close_channel;
 	}
 
@@ -246,7 +241,7 @@ int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouv
 		uint8_t* vaddr;
 		struct pvdrm_slot* slot = NULL;
 
-		slot = pvdrm_slot_alloc(pvdrm);
+		slot = pvdrm_slot_alloc(pvdrm, fpriv->host);
 		vaddr = (uint8_t*)slot->addr;
 		slot->code = PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF;
 

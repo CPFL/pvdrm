@@ -32,6 +32,7 @@
 
 #include <xen/grant_table.h>
 #define PVDRM_SLOT_NR 16
+#define PVDRM_FILE_GLOBAL_HANDLE 0
 
 #include "drmP.h"
 #include "../nouveau/nouveau_abi16.h"
@@ -141,8 +142,9 @@ struct pvdrm_slot {
 	int32_t code;
 	int32_t ret;
 
-	int32_t ref;  /* Grant page reference to transfer additional data. */
-	void* addr;   /* And granted page addr. */
+	int32_t file;  /* File handle in the host. */
+	int32_t ref;   /* Grant page reference to transfer additional data. */
+	void* addr;    /* And granted page addr. */
 
 	union {
 		uint64_t __payload;  /* To calculate palyload address. */
@@ -207,7 +209,7 @@ static inline uint8_t pvdrm_slot_id(const struct pvdrm_mapped* mapped, const str
 	return (((uintptr_t)slot) - ((uintptr_t)mapped)) / sizeof(struct pvdrm_slot);
 }
 
-struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm);
+struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm, int32_t file_handle);
 void pvdrm_slot_free(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 int pvdrm_slot_request(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);
 void pvdrm_slot_request_async(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot);

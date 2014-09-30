@@ -61,5 +61,38 @@ static inline struct pvdrm_device* xbdev_to_pvdrm(struct xenbus_device* xbdev)
         return drm_device_to_pvdrm(xbdev_to_drm_device(xbdev));
 }
 
+/* File and fpriv. */
+
+static inline struct pvdrm_fpriv* drm_file_to_fpriv(struct drm_file* file)
+{
+	return file->driver_priv;
+}
+
+static inline struct drm_file* fpriv_to_drm_file(struct pvdrm_fpriv* fpriv)
+{
+	return fpriv->file;
+}
+
+static inline struct drm_device* drm_file_to_drm_device(struct drm_file* file)
+{
+	return file->minor->dev;
+}
+
+static inline struct pvdrm_device* drm_file_to_pvdrm(struct drm_file* file)
+{
+	return drm_device_to_pvdrm(drm_file_to_drm_device(file));
+}
+
+
+static inline struct drm_device* fpriv_to_drm_device(struct pvdrm_fpriv* fpriv)
+{
+	return drm_file_to_drm_device(fpriv_to_drm_file(fpriv));
+}
+
+static inline struct pvdrm_device* fpriv_to_pvdrm(struct pvdrm_fpriv* fpriv)
+{
+	return drm_file_to_pvdrm(fpriv_to_drm_file(fpriv));
+}
+
 #endif  /* PVDRM_CAST_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

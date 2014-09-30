@@ -60,7 +60,7 @@ void pvdrm_channel_unreference(struct pvdrm_channel* chan)
 	kref_put(&chan->ref, pvdrm_channel_release);  /* Release. */
 }
 
-int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result)
+int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_channel_alloc* req_out, struct pvdrm_channel** result)
 {
 	struct pvdrm_channel *chan;
 	struct pvdrm_device* pvdrm;
@@ -68,7 +68,7 @@ int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct dr
 
 	pvdrm = drm_device_to_pvdrm(dev);
 
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, req_out, sizeof(struct drm_nouveau_channel_alloc));
+	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, req_out, sizeof(struct drm_nouveau_channel_alloc));
 	if (ret) {
 		return ret;
 	}
@@ -102,7 +102,7 @@ again:
 	return 0;
 }
 
-int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out)
+int pvdrm_channel_free(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_channel_free* req_out)
 {
 	int ret = 0;
 	struct pvdrm_channel* chan;
@@ -117,7 +117,7 @@ int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm
 
 	PVDRM_DEBUG("Freeing guest channel %d with host %d.\n", chan->channel, chan->host);
 	req_out->channel = chan->host;
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
+	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE, req_out, sizeof(struct drm_nouveau_channel_free));
 	pvdrm_channel_unreference(chan);  /* Release. */
 	pvdrm_channel_unreference(chan);  /* For freeing. */
 	return ret;

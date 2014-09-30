@@ -26,7 +26,7 @@
 
 #include "drmP.h"
 
-int pvdrm_nouveau_abi16_ioctl(struct drm_device *dev, int code, void *data, size_t size);
+int pvdrm_nouveau_abi16_ioctl(struct drm_file* file, int code, void *data, size_t size);
 
 int pvdrm_nouveau_abi16_ioctl_getparam(struct drm_device *dev, void *data, struct drm_file *file);
 int pvdrm_nouveau_abi16_ioctl_setparam(struct drm_device *dev, void *data, struct drm_file *file);

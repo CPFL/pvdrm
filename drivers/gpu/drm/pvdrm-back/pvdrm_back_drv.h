@@ -54,7 +54,6 @@ struct pvdrm_back_work {
 struct pvdrm_back_device {
 	struct xenbus_device* xbdev;
 	struct task_struct* thread;
-	struct pvdrm_back_file* file;
 	grant_ref_t ref;
 	struct pvdrm_mapped* mapped;
 	atomic_t get;

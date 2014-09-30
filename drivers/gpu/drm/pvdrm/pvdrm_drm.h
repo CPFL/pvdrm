@@ -51,6 +51,7 @@ struct pvdrm_device {
 };
 
 struct pvdrm_fpriv {
+	struct drm_file* file;
 	int32_t host;
 };
 

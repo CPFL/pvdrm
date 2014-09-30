@@ -58,8 +58,9 @@ int pvdrm_gem_object_init(struct drm_gem_object *obj)
 
 void pvdrm_gem_object_free(struct drm_gem_object *gem)
 {
-	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	struct drm_device *dev = obj->base.dev;
+	struct drm_pvdrm_gem_object* obj = to_pvdrm_gem_object(gem);
+	struct drm_file* file = obj->file;
+	struct drm_device* dev = obj->base.dev;
 	struct drm_pvdrm_gem_free req = {
 		.handle = obj->host,
 	};
@@ -69,7 +70,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	PVDRM_INFO("freeing GEM %llx.\n", (unsigned long long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
+	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
 
 	/* FIXME: mmap list should be freed. */
 	if (obj->backing) {
@@ -89,29 +90,20 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	kfree(obj);
 }
 
-int pvdrm_gem_object_open(struct drm_gem_object *gem, struct drm_file *file)
+int pvdrm_gem_object_open(struct drm_gem_object* gem, struct drm_file* file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	PVDRM_INFO("opening GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
 	return 0;
 }
 
-void pvdrm_gem_object_close(struct drm_gem_object *gem, struct drm_file *file)
+void pvdrm_gem_object_close(struct drm_gem_object* gem, struct drm_file* file)
 {
-#if 0
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	struct drm_device *dev = obj->base.dev;
-	struct drm_gem_close req = {
-		.handle = obj->host,
-	};
-	int ret = 0;
-
 	PVDRM_INFO("closing GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
-#endif
 }
 
-struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file *file, uint32_t host, uint32_t size)
+struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file* file, uint32_t host, uint32_t size)
 {
 	int ret = 0;
 	struct drm_pvdrm_gem_object *obj;
@@ -135,6 +127,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 	obj->handle = (uint32_t)-1;
 	obj->host = host;
 	obj->hash.key = -1;
+	obj->file = file;
 
 	/* FIXME: These code are moved from pvdrm_gem_object_new. */
 	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
@@ -177,12 +170,12 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	}
 }
 
-int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result)
+int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_gem_new* req_out, struct drm_pvdrm_gem_object** result)
 {
 	struct drm_pvdrm_gem_object *obj;
 	int ret;
 
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
+	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
 	if (ret) {
 		return ret;
 	}
@@ -208,11 +201,11 @@ struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, str
 }
 
 
-int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
+int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 {
 	int ret = 0;
-	struct drm_file* file_priv = filp->private_data;
-	struct drm_device* dev = file_priv->minor->dev;
+	struct drm_file* file = filp->private_data;
+	struct drm_device* dev = file->minor->dev;
 	struct drm_pvdrm_gem_mmap req;
 	struct pvdrm_device* pvdrm = NULL;
 	struct drm_hash_item *hash;
@@ -263,7 +256,7 @@ int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 		.handle = obj->host,
 	};
 
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
+	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
 	return ret;
 }
 
@@ -273,6 +266,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	int i;
 	struct drm_pvdrm_gem_object* obj = vma->vm_private_data;
 	struct drm_device* dev = obj->base.dev;
+	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(obj->file);
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	uint64_t backing = 0;
 	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
@@ -295,7 +289,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		.nr_pages = (obj->base.size >> PAGE_SHIFT) - (offset >> PAGE_SHIFT),
 	};
 
-	slot = pvdrm_slot_alloc(pvdrm);
+	slot = pvdrm_slot_alloc(pvdrm, fpriv->host);
 	if (!slot) {
 		BUG();
 	}

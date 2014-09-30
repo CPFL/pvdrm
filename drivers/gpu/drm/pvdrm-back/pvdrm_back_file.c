@@ -70,7 +70,7 @@ struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info)
 	}
 again:
 	spin_lock(&info->file_lock);
-	ret = idr_get_new_above(&info->file_idr, pvfile, 1, &pvfile->handle);
+	ret = idr_get_new_above(&info->file_idr, pvfile, PVDRM_FILE_GLOBAL_HANDLE + 1, &pvfile->handle);
 	spin_unlock(&info->file_lock);
 	if (ret == -EAGAIN) {
 		goto again;

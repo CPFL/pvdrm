@@ -60,14 +60,14 @@ typedef struct {
 
 static pvdrm_back_core_t* pvdrm_back_core;
 
-struct drm_file* pvdrm_back_device_to_drm_file(struct pvdrm_back_device* info)
+struct drm_file* pvdrm_back_file_to_drm_file(struct pvdrm_back_file* file)
 {
-	return info->file->filp->private_data;
+	return file->filp->private_data;
 }
 
-struct drm_device* pvdrm_back_device_to_drm_device(struct pvdrm_back_device* info)
+struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back_file* file)
 {
-	return pvdrm_back_device_to_drm_file(info)->minor->dev;
+	return pvdrm_back_file_to_drm_file(file)->minor->dev;
 }
 
 static void* pvdrm_back_slot_addr(struct pvdrm_back_device* info, const struct pvdrm_slot* slot)
@@ -172,18 +172,17 @@ static void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma)
 }
 
 
-static struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
+static struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
 {
 	unsigned long pages;
 	unsigned long long size;
 	uintptr_t addr;
 	struct pvdrm_back_vma* vma;
 	struct drm_gem_object* obj = NULL;
-	struct drm_file* file_priv = NULL;
 	struct drm_device* dev = NULL;
+	struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
 
-	file_priv = pvdrm_back_device_to_drm_file(info);
-	dev = pvdrm_back_device_to_drm_device(info);
+	dev = pvdrm_back_file_to_drm_device(file);
 
 	obj = drm_gem_object_lookup(dev, file_priv, handle);
 	if (!obj) {
@@ -227,7 +226,7 @@ static struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info,
 	vma->base.vm_page_prot = pgprot_writecombine(vm_get_page_prot(flags));
 	/* vma->vm_page_prot = vm_get_page_prot(vm_flags); */
 	vma->base.vm_pgoff = map_handle >> PAGE_SHIFT;
-	vma->base.vm_file = info->file->filp;
+	vma->base.vm_file = file->filp;
 
 	list_add(&vma->head, &info->vmas);
 	vma->info = info;
@@ -303,7 +302,7 @@ static int transfer(struct copier* copier, struct pvdrm_slot* slot, uint8_t* add
 	return 0;
 }
 
-static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct pvdrm_slot* slot)
 {
 	/* buffers, reloc, push is user space pointers of the guest domain. */
 	int ret = 0;
@@ -318,7 +317,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		/* OK, there's no buffers. */
 		PVDRM_DEBUG("pushbuf with no buffers...\n");
 		/* FIXME: Check parameter is valid. */
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 		goto destroy_data;
 	}
 
@@ -361,7 +360,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 		req->buffers = (unsigned long)copier.buffers;
 		req->relocs = (unsigned long)copier.relocs;
 		req->push = (unsigned long)copier.push;
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
 		return ret;
 	}
@@ -411,7 +410,7 @@ static int process_pushbuf(struct pvdrm_back_device* info, struct pvdrm_slot* sl
 	req->buffers = (unsigned long)buffers;
 	req->relocs = (unsigned long)relocs;
 	req->push = (unsigned long)push;
-	ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
+	ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_PUSHBUF, (unsigned long)pvdrm_slot_payload(slot));
 
 destroy_data:
 	if (buffers) {
@@ -452,7 +451,7 @@ static inline uint32_t uint32_min(uint32_t a, uint32_t b)
 	return (a > b) ? b : a;
 }
 
-static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct pvdrm_slot* slot)
 {
 	int i;
 	int ret = 0;
@@ -546,20 +545,20 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_slot* slot
 	return ret;
 }
 
-static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_slot* slot)
+static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct pvdrm_slot* slot)
 {
 	int ret = 0;
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
 	struct pvdrm_back_vma* vma = NULL;
 
-	vma = pvdrm_back_vma_new(info, req->vm_start, req->vm_end, req->flags, req->map_handle, req->handle);
+	vma = pvdrm_back_vma_new(info, file, req->vm_start, req->vm_end, req->flags, req->map_handle, req->handle);
 	if (!vma) {
 		BUG();
 	}
 	/* Call f_op->mmap operation directly since vm_mmap requires current->mm
 	 * is not NULL.
 	 */
-	ret = info->file->filp->f_op->mmap(info->file->filp, &vma->base);
+	ret = file->filp->f_op->mmap(file->filp, &vma->base);
 	if (ret) {
 		BUG();
 		return -EINVAL;
@@ -574,8 +573,7 @@ static void process_slot(struct work_struct* arg)
 	struct pvdrm_back_work* work = NULL;
 	struct pvdrm_back_device* info = NULL;
 	struct pvdrm_slot* slot = NULL;
-	struct drm_file* file_priv = NULL;
-	struct drm_device* dev = NULL;
+	struct pvdrm_back_file* file = NULL;
 	mm_segment_t fs;
 
 	work = container_of(arg, struct pvdrm_back_work, base);
@@ -589,18 +587,24 @@ static void process_slot(struct work_struct* arg)
 	/* msleep(1000); */
 
 	ret = 0;
-	file_priv = pvdrm_back_device_to_drm_file(info);
-	dev = pvdrm_back_device_to_drm_device(info);
 
 	fs = get_fs();
 	set_fs(get_ds());
+
+	if (slot->file) {
+		file = pvdrm_back_file_lookup(info, slot->file);
+		if (!file) {
+			ret = -EINVAL;
+			goto done;
+		}
+	}
 
 	/* Processing slot. */
 	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
 	case PVDRM_FILE_OPEN: {
-			struct pvdrm_back_file* file = pvdrm_back_file_new(info);
 			struct drm_pvdrm_file_open* req = pvdrm_slot_payload(slot);
+			file = pvdrm_back_file_new(info);
 			if (!file) {
 				ret = -ENOMEM;
 				break;
@@ -612,7 +616,7 @@ static void process_slot(struct work_struct* arg)
 
 	case PVDRM_FILE_CLOSE: {
 			struct drm_pvdrm_file_close* req = pvdrm_slot_payload(slot);
-			struct pvdrm_back_file* file = pvdrm_back_file_lookup(info, req->file);
+			file = pvdrm_back_file_lookup(info, req->file);
 			if (!file) {
 				ret = -EINVAL;
 				break;
@@ -622,42 +626,44 @@ static void process_slot(struct work_struct* arg)
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
 		PVDRM_DEBUG("allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_FREE, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_FREE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_INFO:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_INFO, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_INFO, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_NEW:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_NEW, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_PUSHBUF:
-		ret = process_pushbuf(info, slot);
+		ret = process_pushbuf(info, file, slot);
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_PREP, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_PREP, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI:
-		ret = drm_ioctl(info->file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
+		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GEM_CPU_FINI, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_FREE: {
 			/* FIXME: Need to investigate more... */
 			struct pvdrm_back_vma* vma = NULL;
 			struct drm_pvdrm_gem_free* req = pvdrm_slot_payload(slot);
+			struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
+			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
 			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
 			if (!obj) {
 				PVDRM_WARN("Invalid freeing handle:(%x)\n", req->handle);
@@ -683,18 +689,20 @@ static void process_slot(struct work_struct* arg)
 
 	case PVDRM_GEM_NOUVEAU_GEM_MMAP:
 		/* FIXME: Need to check... */
-		ret = process_mmap(info, slot);
+		ret = process_mmap(info, file, slot);
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_FAULT:
 		/* FIXME: Need to check... */
-		ret = process_fault(info, slot);
+		ret = process_fault(info, file, slot);
 		break;
 
 	default:
 		PVDRM_DEBUG("unhandled slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
 		break;
 	}
+done:
+
 	set_fs(fs);
 
 	slot->ret = ret;
@@ -746,9 +754,6 @@ static int polling(void *arg)
 		}
 	}
 
-	/* Open DRM file. */
-	info->file = pvdrm_back_file_new(info);
-
 	PVDRM_INFO("Start main loop.\n");
 	while (true) {
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
@@ -778,10 +783,6 @@ static int polling(void *arg)
 		}
 	}
 	PVDRM_INFO("End main loop.\n");
-
-	/* Close DRM file. */
-	pvdrm_back_file_destroy(info->file);
-	info->file = NULL;
 
 	return 0;
 }

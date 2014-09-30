@@ -30,6 +30,7 @@
 struct drm_pvdrm_gem_object {
 	struct drm_gem_object base;
 	struct drm_hash_item hash;
+	struct drm_file* file;
 	uint32_t handle;
 	uint32_t host;
 	uint32_t domain;

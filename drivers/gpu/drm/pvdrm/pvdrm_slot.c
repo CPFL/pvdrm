@@ -163,7 +163,7 @@ int pvdrm_slots_release(struct pvdrm_device* pvdrm)
         return 0;
 }
 
-struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
+struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm, int32_t file_handle)
 {
 	int i;
 	struct pvdrm_slots* slots;
@@ -181,6 +181,7 @@ struct pvdrm_slot* pvdrm_slot_alloc(struct pvdrm_device* pvdrm)
 		if (!is_used(&mapped->slot[i])) {
                         slot = &mapped->slot[i];
                         slot->code = PVDRM_HELD;
+			slot->file = file_handle;
 			break;
 		}
 	}

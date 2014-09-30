@@ -76,12 +76,25 @@ int pvdrm_unload(struct drm_device *dev)
 	return ret;
 }
 
-int pvdrm_open(struct drm_device *dev, struct drm_file *file)
+static int pvdrm_nouveau_global_call(struct drm_device* dev, int code, void *data, size_t size)
+{
+	struct pvdrm_device* pvdrm;
+	int ret;
+	pvdrm = drm_device_to_pvdrm(dev);
+	{
+		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm, PVDRM_FILE_GLOBAL_HANDLE);
+		ret = pvdrm_slot_call(pvdrm, slot, code, data, size);
+		pvdrm_slot_free(pvdrm, slot);
+	}
+	return ret;
+}
+
+int pvdrm_open(struct drm_device* dev, struct drm_file* file)
 {
 	struct drm_pvdrm_file_open req = { 0 };
 	struct pvdrm_fpriv* fpriv = NULL;
 	int ret = 0;
-	ret = pvdrm_nouveau_abi16_ioctl(dev, PVDRM_FILE_OPEN, &req, sizeof(struct drm_pvdrm_file_open));
+	ret = pvdrm_nouveau_global_call(dev, PVDRM_FILE_OPEN, &req, sizeof(struct drm_pvdrm_file_open));
 	if (ret) {
 		goto fail_hypercall;
 	}
@@ -93,6 +106,7 @@ int pvdrm_open(struct drm_device *dev, struct drm_file *file)
 	}
 
 	fpriv->host = req.file;
+	fpriv->file = file;
 
 	file->driver_priv = fpriv;
 
@@ -108,11 +122,12 @@ void pvdrm_preclose(struct drm_device *dev, struct drm_file *file)
 
 void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
 {
-	struct pvdrm_fpriv* fpriv = file->driver_priv;
+	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(file);
 	struct drm_pvdrm_file_close req = {
 		.file = fpriv->host,
 	};
-	pvdrm_nouveau_abi16_ioctl(dev, PVDRM_FILE_CLOSE, &req, sizeof(struct drm_pvdrm_file_close));
+	pvdrm_nouveau_global_call(dev, PVDRM_FILE_CLOSE, &req, sizeof(struct drm_pvdrm_file_close));
+	kfree(fpriv);
 }
 
 /* vim: set sw=8 ts=8 et tw=80 : */
