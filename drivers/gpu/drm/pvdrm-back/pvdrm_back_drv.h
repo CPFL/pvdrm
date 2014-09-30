@@ -31,6 +31,7 @@
 
 #include "../pvdrm/pvdrm_slot.h"
 #include "../pvdrm/pvdrm_log.h"
+#include "../pvdrm/pvdrm_bench.h"
 
 struct pvdrm_back_device;
 struct xenbus_device;

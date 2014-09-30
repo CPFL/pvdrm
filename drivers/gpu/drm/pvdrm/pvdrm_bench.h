@@ -37,21 +37,23 @@ static inline void pvdrm_bench_open(struct pvdrm_bench* bench)
 	bench->elapsed = CURRENT_TIME;
 }
 
-static inline void pvdrm_bench_close(struct pvdrm_bench* bench, bool dump)
+static inline void pvdrm_bench_close(struct pvdrm_bench* bench, const char* name)
 {
 	const struct timespec finish = CURRENT_TIME;
 	const struct timespec elapsed = timespec_sub(finish, bench->elapsed);
 	bench->elapsed = elapsed;
 	bench->opened = false;
-	if (dump) {
+	if (name) {
 		const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000000ULL);
 		const long long unsigned us = bench->elapsed.tv_sec * 1000000ULL + (bench->elapsed.tv_nsec / 1000ULL);
-		PVDRM_INFO("elapsed time: ms:(%llu), us:(%llu)\n", ms, us);
+		PVDRM_INFO("[%s] elapsed time: ms:(%llu), us:(%llu)\n", name, ms, us);
 	}
 }
 
-#define PVDRM_BENCH(bench) \
-	for (pvdrm_bench_open(bench); (bench)->opened; pvdrm_bench_close(bench, true))
+#define PVDRM_BENCH_WITH_NAME(bench, name) \
+	for (pvdrm_bench_open(bench); (bench)->opened; pvdrm_bench_close(bench, name))
+
+#define PVDRM_BENCH(bench) PVDRM_BENCH_WITH_NAME(bench, __func__)
 
 #endif  /* PVDRM_BENCH_H_ */
 /* vim: set sw=8 ts=8 et tw=80 : */

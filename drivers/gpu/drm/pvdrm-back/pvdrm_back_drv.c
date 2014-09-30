@@ -407,7 +407,7 @@ static void process_slot(struct work_struct* arg)
 	struct pvdrm_back_device* info = NULL;
 	struct pvdrm_slot* slot = NULL;
 	struct pvdrm_back_file* file = NULL;
-	mm_segment_t fs;
+	/* mm_segment_t fs; */
 
 	work = container_of(arg, struct pvdrm_back_work, base);
 	BUG_ON(!work);
@@ -416,13 +416,13 @@ static void process_slot(struct work_struct* arg)
 	slot = work->slot;
 	BUG_ON(!slot);
 
-	PVDRM_DEBUG("processing slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
+	PVDRM_INFO("processing slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
 	/* msleep(1000); */
 
 	ret = 0;
 
-	fs = get_fs();
-	set_fs(get_ds());
+	/* fs = get_fs(); */
+	/* set_fs(get_ds()); */
 
 	if (slot->file) {
 		file = pvdrm_back_file_lookup(info, slot->file);
@@ -462,9 +462,13 @@ static void process_slot(struct work_struct* arg)
 		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_GETPARAM, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
-	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC:
-		ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
-		PVDRM_DEBUG("allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
+	case PVDRM_IOCTL_NOUVEAU_CHANNEL_ALLOC: {
+			struct pvdrm_bench bench;
+			PVDRM_BENCH_WITH_NAME(&bench, "channel alloc") {
+				ret = drm_ioctl(file->filp, DRM_IOCTL_NOUVEAU_CHANNEL_ALLOC, (unsigned long)pvdrm_slot_payload(slot));
+				PVDRM_DEBUG("allocate channel id %d\n", ((struct drm_nouveau_channel_alloc*)(pvdrm_slot_payload(slot)))->channel);
+			}
+		}
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_CHANNEL_FREE:
@@ -536,7 +540,7 @@ static void process_slot(struct work_struct* arg)
 	}
 done:
 
-	set_fs(fs);
+	/* set_fs(fs); */
 
 	slot->ret = ret;
 
@@ -550,6 +554,7 @@ static int polling(void *arg)
 
 	int ret;
 	struct pvdrm_back_device* info;
+	mm_segment_t fs;
 
 	ret = 0;
 	info = arg;
@@ -588,6 +593,9 @@ static int polling(void *arg)
 	}
 
 	PVDRM_INFO("Start main loop.\n");
+	fs = get_fs();
+	set_fs(get_ds());
+
 	while (true) {
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
 			/* Sleep. */
@@ -615,6 +623,8 @@ static int polling(void *arg)
 			}
 		}
 	}
+
+	set_fs(fs);
 	PVDRM_INFO("End main loop.\n");
 
 	return 0;
