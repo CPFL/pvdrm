@@ -36,6 +36,7 @@ int pvdrm_connected(struct pvdrm_device* pvdrm, struct drm_device *dev)
 	pvdrm_slots_init(pvdrm);
 
 	/* Open global fpriv. */
+	PVDRM_INFO("%s\n", pvdrm->devnode);
 	if (!device_get_devnode(&dev->primary->kdev, NULL, &pvdrm->devnode)) {
 		return -ENOMEM;
 	}
