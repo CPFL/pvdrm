@@ -29,9 +29,24 @@
 #include "pvdrm_slot.h"
 #include "pvdrm_nouveau_abi16.h"
 
-static int pvdrm_init(struct pvdrm_device* pvdrm, struct drm_device *dev, unsigned long flags)
+/* Called after backend is connected. */
+/* FIXME: There's no memory free. */
+int pvdrm_connected(struct pvdrm_device* pvdrm, struct drm_device *dev)
 {
-	// pvdrm_slot_init(pvdrm);
+	pvdrm_slots_init(pvdrm);
+
+	/* Open global fpriv. */
+	if (!device_get_devnode(&dev->primary->kdev, NULL, &pvdrm->devnode)) {
+		return -ENOMEM;
+	}
+	{
+		mm_segment_t fs = get_fs();
+		set_fs(get_ds());
+		pvdrm->global_filp = filp_open(pvdrm->devnode, O_RDWR, 0);
+		set_fs(fs);
+		/* FIXME: More stable way. */
+		pvdrm->global_fpriv.file = pvdrm->global_filp->private_data;
+	}
 	return 0;
 }
 
@@ -45,15 +60,23 @@ int pvdrm_load(struct drm_device *dev, unsigned long flags)
 		return -ENOMEM;
         }
 
-        /* Configure it. */
+	/* Configure it. */
 	dev->dev_private = (void*)pvdrm;
 	pvdrm->dev = dev;
 
-	ret = pvdrm_init(pvdrm, dev, flags);
-	if (ret)
+	if (drm_ht_create(&pvdrm->mh2obj, 16)) {
 		goto out;
+	}
+	spin_lock_init(&pvdrm->mh2obj_lock);
 
-        PVDRM_INFO("loaded.\n");
+	idr_init(&pvdrm->channels_idr);
+	spin_lock_init(&pvdrm->channels_lock);
+	pvdrm->wq = alloc_workqueue("pvdrm", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
+	if (!pvdrm->wq) {
+		BUG();
+	}
+
+	PVDRM_INFO("loaded.\n");
 out:
 	if (ret)
 		pvdrm_unload(dev);
@@ -66,12 +89,12 @@ int pvdrm_unload(struct drm_device *dev)
 	struct pvdrm_device *pvdrm = NULL;
 	int ret = 0;
 
-        pvdrm = drm_device_to_pvdrm(dev);
-        if (pvdrm) {
-                pvdrm_slots_release(pvdrm);
+	pvdrm = drm_device_to_pvdrm(dev);
+	if (pvdrm) {
+		pvdrm_slots_release(pvdrm);
 		kfree(pvdrm);
-                dev->dev_private = NULL;
-        }
+		dev->dev_private = NULL;
+	}
 
 	return ret;
 }
@@ -129,5 +152,3 @@ void pvdrm_postclose(struct drm_device *dev, struct drm_file *file)
 	pvdrm_nouveau_global_call(dev, PVDRM_FILE_CLOSE, &req, sizeof(struct drm_pvdrm_file_close));
 	kfree(fpriv);
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

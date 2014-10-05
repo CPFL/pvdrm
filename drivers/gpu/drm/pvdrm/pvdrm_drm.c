@@ -157,24 +157,9 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	PVDRM_INFO("CONNECTED.\n");
 
         pvdrm = xbdev_to_pvdrm(xbdev);
-
-        pvdrm_slots_init(pvdrm);
-
-	if (drm_ht_create(&pvdrm->mh2obj, 16)) {
-		return -ENOMEM;
-	}
-        spin_lock_init(&pvdrm->mh2obj_lock);
-
-	idr_init(&pvdrm->channels_idr);
-	spin_lock_init(&pvdrm->channels_lock);
-	pvdrm->wq = alloc_workqueue("pvdrm", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
-	if (!pvdrm->wq) {
-		BUG();
-	}
-
+        pvdrm_connected(pvdrm, xbdev_to_drm_device(xbdev));
 
 	PVDRM_INFO("setting counter-ref.\n");
-
         {
                 struct xenbus_transaction xbt;
 again:

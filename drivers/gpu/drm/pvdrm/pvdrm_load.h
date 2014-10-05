@@ -24,6 +24,7 @@
 #ifndef PVDRM_LOAD_H_
 #define PVDRM_LOAD_H_
 
+int pvdrm_connected(struct pvdrm_device* pvdrm, struct drm_device *dev);
 int pvdrm_load(struct drm_device *dev, unsigned long flags);
 int pvdrm_unload(struct drm_device *dev);
 int pvdrm_open(struct drm_device *dev, struct drm_file *file);

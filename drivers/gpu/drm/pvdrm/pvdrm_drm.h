@@ -39,6 +39,11 @@
 #define DRIVER_MINOR		0
 #define DRIVER_PATCHLEVEL	0
 
+struct pvdrm_fpriv {
+	struct drm_file* file;
+	int32_t host;
+};
+
 struct pvdrm_device {
 	struct drm_device* dev;
 	struct pvdrm_slots* slots;
@@ -48,11 +53,10 @@ struct pvdrm_device {
 	struct idr channels_idr;
 	spinlock_t channels_lock;
 	struct workqueue_struct* wq;
-};
+        const char* devnode;
 
-struct pvdrm_fpriv {
-	struct drm_file* file;
-	int32_t host;
+        struct pvdrm_fpriv global_fpriv;
+        struct file* global_filp;
 };
 
 #endif  /* PVDRM_DRM_H_ */
