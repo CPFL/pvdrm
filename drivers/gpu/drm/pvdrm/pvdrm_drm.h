@@ -53,7 +53,6 @@ struct pvdrm_device {
 	struct idr channels_idr;
 	spinlock_t channels_lock;
 	struct workqueue_struct* wq;
-        const char* devnode;
 
         struct pvdrm_fpriv global_fpriv;
         struct file* global_filp;

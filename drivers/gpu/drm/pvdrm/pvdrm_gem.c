@@ -176,6 +176,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 {
 	struct drm_pvdrm_gem_object *obj;
 	int ret;
+	unsigned long req_domain = req_out->info.domain;
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
 	if (ret) {
@@ -193,7 +194,16 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 
 	*result = obj;
 
-	PVDRM_INFO("Allocating %u with refcount:(%d)\n", obj->host, pvdrm_gem_refcount(obj));
+	PVDRM_INFO("Allocating %u with refcount:(%d) req_domain:(%lx) domain:(%x)\n", obj->host, pvdrm_gem_refcount(obj), req_domain, obj->domain);
+
+	/* Caching the memory. */
+	if (req_domain & NOUVEAU_GEM_DOMAIN_MAPPABLE) {
+		if (obj->domain & NOUVEAU_GEM_DOMAIN_GART) {
+			PVDRM_INFO("Caching %u with refcount:(%d)\n", obj->host, pvdrm_gem_refcount(obj));
+		} else if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
+		}
+	}
+
 	return 0;
 }
 
