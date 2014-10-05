@@ -124,3 +124,18 @@ void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 
 	kfree(file);
 }
+
+static int pvdrm_back_info_destroy_file(int id, void* p, void* data)
+{
+	pvdrm_back_file_destroy((struct pvdrm_back_file*)p);
+	return 0;
+}
+
+int pvdrm_back_info_destroy_files(struct pvdrm_back_device* info)
+{
+	int ret;
+	spin_lock(&info->file_lock);
+	ret = idr_for_each(&info->file_idr, &pvdrm_back_info_destroy_file, NULL);
+	spin_unlock(&info->file_lock);
+	return ret;
+}

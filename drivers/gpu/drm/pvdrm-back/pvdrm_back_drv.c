@@ -711,6 +711,7 @@ static void frontend_changed(struct xenbus_device *xbdev, enum xenbus_state fron
 			kthread_stop(info->thread);
 			info->thread = NULL;
 		}
+		pvdrm_back_info_destroy_files(info);
 
 		/* fall through if not online */
 	case XenbusStateUnknown:
