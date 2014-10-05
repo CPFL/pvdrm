@@ -52,4 +52,3 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 
 #endif  /* PVDRM_GEM_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

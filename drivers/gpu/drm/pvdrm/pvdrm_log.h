@@ -68,4 +68,3 @@
 #define PVDRM_WARN(fmt, arg...) PVDRM_PRINTK(KERN_WARNING, fmt, ##arg)
 
 #endif  /* PVDRM_LOG_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

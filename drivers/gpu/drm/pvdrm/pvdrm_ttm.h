@@ -46,4 +46,3 @@ int pvdrm_ttm_init(struct pvdrm_device* pvdrm);
 int pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma);
 
 #endif  /* PVDRM_TTM_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

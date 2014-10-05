@@ -32,4 +32,3 @@ void pvdrm_preclose(struct drm_device *dev, struct drm_file *file);
 void pvdrm_postclose(struct drm_device *dev, struct drm_file *file);
 
 #endif  /* PVDRM_LOAD_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

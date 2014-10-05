@@ -27,4 +27,3 @@
 irqreturn_t pvdrm_irq_handler(int irq, void *arg);
 
 #endif  /* PVDRM_IRQ_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

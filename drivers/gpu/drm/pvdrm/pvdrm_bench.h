@@ -56,4 +56,3 @@ static inline void pvdrm_bench_close(struct pvdrm_bench* bench, const char* name
 #define PVDRM_BENCH(bench) PVDRM_BENCH_WITH_NAME(bench, __func__)
 
 #endif  /* PVDRM_BENCH_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

@@ -124,5 +124,3 @@ void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 
 	kfree(file);
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

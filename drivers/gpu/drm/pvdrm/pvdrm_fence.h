@@ -81,4 +81,3 @@ static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected,
 }
 
 #endif  /* PVDRM_FENCE_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

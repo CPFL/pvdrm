@@ -175,5 +175,3 @@ int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_
 	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

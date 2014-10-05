@@ -42,4 +42,3 @@ int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct 
 int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_file *file);
 
 #endif  /* PVDRM_NOUVEAU_ABI16_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

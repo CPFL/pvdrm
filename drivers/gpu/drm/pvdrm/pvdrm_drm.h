@@ -60,4 +60,3 @@ struct pvdrm_device {
 };
 
 #endif  /* PVDRM_DRM_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

@@ -366,5 +366,3 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		return VM_FAULT_SIGBUS;
 	}
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

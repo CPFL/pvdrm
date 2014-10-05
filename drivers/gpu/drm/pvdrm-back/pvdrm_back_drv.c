@@ -593,7 +593,8 @@ static int polling(void *arg)
 			/* Sleep. */
 			ktime_t time;
 			__set_current_state(TASK_INTERRUPTIBLE);
-			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+			// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+			time = ktime_set(0, 20);  /* This value derived from Paradice [ASPLOS '14]. */
 			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
 		}
 
@@ -767,4 +768,3 @@ module_exit(pvdrm_back_exit);
 MODULE_AUTHOR("Yusuke Suzuki");
 MODULE_DESCRIPTION("PVDRM backend driver");
 MODULE_LICENSE("GPL");
-/* vim: set sw=8 ts=8 et tw=80 : */

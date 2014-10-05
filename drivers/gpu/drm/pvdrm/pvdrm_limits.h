@@ -29,4 +29,3 @@
 #endif
 
 #endif  /* PVDRM_LIMITS_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

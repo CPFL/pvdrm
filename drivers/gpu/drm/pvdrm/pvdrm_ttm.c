@@ -106,5 +106,3 @@ pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	return ttm_bo_mmap(filp, vma, &pvdrm->ttm->bdev);
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

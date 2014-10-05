@@ -45,4 +45,3 @@ void pvdrm_channel_reference(struct pvdrm_channel* chan);
 void pvdrm_channel_unreference(struct pvdrm_channel* chan);
 
 #endif  /* PVDRM_CHANNEL_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

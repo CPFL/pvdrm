@@ -254,4 +254,3 @@ module_exit(pvdrm_exit);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
-/* vim: set sw=8 ts=8 et tw=80 : */

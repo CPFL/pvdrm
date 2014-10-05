@@ -183,5 +183,3 @@ struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct
 
 	return vma;
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

@@ -275,5 +275,3 @@ close_channel:
 exit:
 	return ret;
 }
-
-/* vim: set sw=4 et ts=4: */

@@ -27,4 +27,3 @@
 int pvdrm_pushbuf(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_pushbuf* req_out);
 
 #endif  /* PVDRM_PUSHBUF_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

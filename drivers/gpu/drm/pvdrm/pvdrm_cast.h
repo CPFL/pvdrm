@@ -95,4 +95,3 @@ static inline struct pvdrm_device* fpriv_to_pvdrm(struct pvdrm_fpriv* fpriv)
 }
 
 #endif  /* PVDRM_CAST_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

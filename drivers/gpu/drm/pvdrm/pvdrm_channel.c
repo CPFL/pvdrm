@@ -147,5 +147,3 @@ struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id)
 	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
         return chan;
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

@@ -257,5 +257,3 @@ int pvdrm_slot_call(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, int cod
 	memcpy(data, pvdrm_slot_payload(slot), size);
 	return ret;
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */

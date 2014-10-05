@@ -98,4 +98,3 @@ static inline struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back
 }
 
 #endif  /* PVDRM_BACK_DRV_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

@@ -219,4 +219,3 @@ int pvdrm_slot_wait(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, uint32_
 int pvdrm_slot_call(struct pvdrm_device* pvdrm, struct pvdrm_slot* slot, int code, void *data, size_t size);
 
 #endif  /* PVDRM_SLOT_H_ */
-/* vim: set sw=8 ts=8 et tw=80 : */

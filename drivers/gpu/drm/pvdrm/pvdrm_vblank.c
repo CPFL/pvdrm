@@ -38,5 +38,3 @@ int pvdrm_vblank_enable(struct drm_device *dev, int crtc)
 void pvdrm_vblank_disable(struct drm_device *dev, int crtc)
 {
 }
-
-/* vim: set sw=8 ts=8 et tw=80 : */
