@@ -1,6 +1,7 @@
 ccflags-y := -Iinclude/drm
 pvdrm-y  := \
 	pvdrm_nouveau_abi16.o \
+	pvdrm_cache.o \
 	pvdrm_channel.o \
 	pvdrm_drm.o \
 	pvdrm_gem.o \

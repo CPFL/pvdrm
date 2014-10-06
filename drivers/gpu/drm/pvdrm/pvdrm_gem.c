@@ -67,7 +67,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	int ret = 0;
 	struct pvdrm_device* pvdrm = NULL;
 
-	PVDRM_INFO("freeing GEM %llx.\n", (unsigned long long)obj->host);
+	PVDRM_INFO("freeing GEM %lu.\n", (unsigned long)obj->host);
 
 	pvdrm = drm_device_to_pvdrm(dev);
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_FREE, &req, sizeof(struct drm_pvdrm_gem_free));
@@ -79,6 +79,10 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		free_pages(obj->backing, get_order(obj->base.size));
 #endif
 		obj->backing = 0;
+	}
+
+	if (obj->pages) {
+		kfree(obj->pages);
 	}
 
 	drm_gem_object_release(&obj->base);
@@ -94,14 +98,34 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 int pvdrm_gem_object_open(struct drm_gem_object* gem, struct drm_file* file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	PVDRM_INFO("opening GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
+	PVDRM_INFO("opening GEM %lu count:(%d).\n", (unsigned long)obj->host, pvdrm_gem_refcount(obj));
 	return 0;
 }
 
 void pvdrm_gem_object_close(struct drm_gem_object* gem, struct drm_file* file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
-	PVDRM_INFO("closing GEM %llx count:(%d).\n", (unsigned long long)obj->host, pvdrm_gem_refcount(obj));
+	struct drm_device* dev = obj->base.dev;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
+	PVDRM_INFO("closing GEM %lu count:(%d).\n", (unsigned long)obj->host, pvdrm_gem_refcount(obj));
+	if (pvdrm->caching && obj->cacheable) {
+		drm_gem_object_handle_reference(&obj->base);   /* Ref cache refernece. */
+		pvdrm_cache_insert(pvdrm->gem_cache, obj);
+		PVDRM_INFO("Caching GEM %lu count:(%d).\n", (unsigned long)obj->host, pvdrm_gem_refcount(obj));
+	}
+}
+
+static int register_handle(struct drm_file* file, struct drm_pvdrm_gem_object* obj)
+{
+	int ret;
+	obj->file = file;
+	/* FIXME: These code are moved from pvdrm_gem_object_new. */
+	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
+	if (!ret) {
+		/* Drop reference from allocate - handle holds it now */
+		drm_gem_object_unreference(&obj->base);
+	}
+	return ret;
 }
 
 struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, struct drm_file* file, uint32_t host, uint32_t size)
@@ -125,20 +149,16 @@ struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device* dev, stru
 	}
 
 	/* Store host information. */
-	obj->handle = (uint32_t)-1;
 	obj->host = host;
+	obj->handle = (uint32_t)-1;
 	obj->hash.key = -1;
-	obj->file = file;
 
 	/* FIXME: These code are moved from pvdrm_gem_object_new. */
-	ret = drm_gem_handle_create(file, &obj->base, &obj->handle);
+	ret = register_handle(file, obj);
 	if (ret) {
 		pvdrm_gem_object_free(&obj->base);
 		return NULL;
 	}
-
-	/* Drop reference from allocate - handle holds it now */
-	drm_gem_object_unreference(&obj->base);
 
 	return obj;
 fput:
@@ -162,6 +182,7 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 	obj->hash.key = info->map_handle >> PAGE_SHIFT;
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
+	memcpy(&obj->info, info, sizeof(*info));
 	spin_lock_irqsave(&pvdrm->mh2obj_lock, flags);
 	PVDRM_DEBUG("registering %lx / %llx domain:(%lx)\n", obj->hash.key, info->map_handle, (unsigned long)info->domain);
 	ret = drm_ht_insert_item(&pvdrm->mh2obj, &obj->hash);
@@ -174,32 +195,51 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 
 int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct drm_nouveau_gem_new* req_out, struct drm_pvdrm_gem_object** result)
 {
-	struct drm_pvdrm_gem_object *obj;
+	struct drm_pvdrm_gem_object* obj = NULL;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	int ret;
-	unsigned long req_domain = req_out->info.domain;
+	const unsigned req_domain = req_out->info.domain;
+	const bool mappable = req_out->info.domain & NOUVEAU_GEM_DOMAIN_MAPPABLE;
+	const bool dma = req_out->info.domain & NOUVEAU_GEM_DOMAIN_GART;
 
-	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
-	if (ret) {
-		return ret;
+	PVDRM_INFO("Checking req_domain:(%u) size:(%llx) check:(%d)\n", req_domain, req_out->info.size, (int)(mappable && dma));
+	if (pvdrm->caching && mappable && dma) {
+		obj = pvdrm_cache_fit(pvdrm->gem_cache, req_out->info.size);
+		if (obj) {
+			/* FIXME: channel_hint and align are not considered. */
+			register_handle(file, obj);
+			memcpy(&req_out->info, &obj->info, sizeof(obj->info));
+			PVDRM_INFO("Reviving %u with refcount:(%d) domain:(%u)\n", obj->host, pvdrm_gem_refcount(obj), obj->domain);
+		}
 	}
 
-	obj = pvdrm_gem_alloc_object(dev, file, req_out->info.handle, req_out->info.size);
-	if (obj == NULL) {
-		return -ENOMEM;
+	if (!obj) {
+		ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_NEW, req_out, sizeof(struct drm_nouveau_gem_new));
+		if (ret) {
+			return ret;
+		}
+
+		obj = pvdrm_gem_alloc_object(dev, file, req_out->info.handle, req_out->info.size);
+		if (obj == NULL) {
+			return -ENOMEM;
+		}
+		pvdrm_gem_register_host_info(dev, file, obj, &req_out->info);
 	}
-	pvdrm_gem_register_host_info(dev, file, obj, &req_out->info);
+
+	BUG_ON(!obj);
 
 	/* Adjust gem information for guest environment. */
 	req_out->info.handle = obj->handle;
 
 	*result = obj;
 
-	PVDRM_INFO("Allocating %u with refcount:(%d) req_domain:(%lx) domain:(%x)\n", obj->host, pvdrm_gem_refcount(obj), req_domain, obj->domain);
+	PVDRM_INFO("Allocating %u with refcount:(%d) domain:(%u)\n", obj->host, pvdrm_gem_refcount(obj), obj->domain);
 
 	/* Caching the memory. */
-	if (req_domain & NOUVEAU_GEM_DOMAIN_MAPPABLE) {
+	if (pvdrm->caching && mappable) {
 		if (obj->domain & NOUVEAU_GEM_DOMAIN_GART) {
 			PVDRM_INFO("Caching %u with refcount:(%d)\n", obj->host, pvdrm_gem_refcount(obj));
+			obj->cacheable = true;
 		} else if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
 		}
 	}
@@ -216,6 +256,7 @@ struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, str
 int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 {
 	int ret = 0;
+	int i;
 	unsigned long flags;
 	struct drm_file* file = filp->private_data;
 	struct drm_device* dev = file->minor->dev;
@@ -270,6 +311,29 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	};
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_MMAP, &req, sizeof(struct drm_pvdrm_gem_mmap));
+	if (ret) {
+		BUG();
+	}
+
+	if (obj->cacheable) {
+		if (!obj->pages) {
+			/* Remap previously resolved pages. */
+			/* FIXME: Page size alignment. */
+			obj->pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
+		} else {
+			for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
+				struct page* page = obj->pages[i];
+				if (page) {
+					unsigned long pfn = page_to_pfn(page);
+					ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, pfn);
+					if (ret) {
+						BUG();
+					}
+				}
+			}
+		}
+	}
+
 	return ret;
 }
 
@@ -308,6 +372,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	}
 
 	PVDRM_DEBUG("fault is called with 0x%lx, ref %d\n", vma->vm_pgoff, slot->ref);
+	PVDRM_INFO("Faulting %u.\n", obj->host);
 	ret = pvdrm_slot_call(pvdrm, slot, PVDRM_GEM_NOUVEAU_GEM_FAULT, &req, sizeof(struct drm_pvdrm_gem_fault));
 	PVDRM_DEBUG("fault is done %d.\n", ret);
 
@@ -350,7 +415,12 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			if (ret) {
 				BUG();
 			}
+			if (obj->cacheable && obj->pages) {
+				obj->pages[mapping->i] = pages[i];
+			}
 		}
+		kfree(map);
+		kfree(pages);
 	} else {
 		/* FIXME: Xen now put errors. */
 		for (i = 0; i < req.mapped_count; ++i) {

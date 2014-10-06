@@ -30,11 +30,15 @@
 struct drm_pvdrm_gem_object {
 	struct drm_gem_object base;
 	struct drm_hash_item hash;
+	struct list_head cache_head;
 	struct drm_file* file;
+	struct drm_nouveau_gem_info info;
 	uint32_t handle;
 	uint32_t host;
 	uint32_t domain;
 	uint64_t map_handle;
+	bool cacheable;
+	struct page** pages;
 	unsigned long backing;  /* Backing stone for VRAM mapping. */
 };
 

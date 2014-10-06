@@ -21,45 +21,21 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_DRM_H_
-#define PVDRM_DRM_H_
+#ifndef PVDRM_CACHE_H_
+#define PVDRM_CACHE_H_
 
 #include "drmP.h"
+#include "nouveau_drm.h"
 
-#include "pvdrm_cache.h"
-#include "pvdrm_slot.h"
-#include "pvdrm_ttm.h"
-
-#define DRIVER_AUTHOR		"Yusuke Suzuki"
-
-#define DRIVER_NAME		"pvdrm"
-#define DRIVER_DESC		"PVDRM driver"
-#define DRIVER_DATE		"20140731"
-
-#define DRIVER_MAJOR		1
-#define DRIVER_MINOR		0
-#define DRIVER_PATCHLEVEL	0
-
-struct pvdrm_fpriv {
-	struct drm_file* file;
-	int32_t host;
+struct pvdrm_cache {
+	struct list_head objects;
 };
 
-struct pvdrm_device {
-	struct drm_device* dev;
-	struct pvdrm_slots* slots;
-	struct pvdrm_ttm* ttm;
-	struct drm_open_hash mh2obj;
-	spinlock_t mh2obj_lock;
-	struct idr channels_idr;
-	spinlock_t channels_lock;
-	struct pvdrm_cache* gem_cache;
-	struct workqueue_struct* wq;
+struct pvdrm_device;
+struct drm_pvdrm_gem_object;
 
-	bool caching;
+struct pvdrm_cache* pvdrm_cache_new(struct pvdrm_device* device);
+void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_pvdrm_gem_object* obj);
+struct drm_pvdrm_gem_object* pvdrm_cache_fit(struct pvdrm_cache* cache, unsigned long size);
 
-        struct pvdrm_fpriv global_fpriv;
-        struct file* global_filp;
-};
-
-#endif  /* PVDRM_DRM_H_ */
+#endif  /* PVDRM_CACHE_H_ */

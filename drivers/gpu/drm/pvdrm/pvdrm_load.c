@@ -22,6 +22,7 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "pvdrm_cache.h"
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_load.h"
@@ -34,26 +35,8 @@
 int pvdrm_connected(struct pvdrm_device* pvdrm, struct drm_device *dev)
 {
 	pvdrm_slots_init(pvdrm);
-
-#if 0
-	const char* devnode = NULL;
-	const char* from_root = NULL;
-	/* Open global fpriv. */
-	devnode = dev->primary->kdev.class->devnode(&dev->primary->kdev, NULL);
-	from_root = kasprintf(GFP_KERNEL, "/dev/%s", devnode);
-
-	PVDRM_INFO("%s\n", from_root);
-	{
-		mm_segment_t fs = get_fs();
-		set_fs(get_ds());
-		pvdrm->global_filp = filp_open(from_root, O_RDWR, 0);
-		set_fs(fs);
-		BUG_ON(!pvdrm->global_filp);
-		/* FIXME: More stable way. */
-		pvdrm->global_fpriv.file = pvdrm->global_filp->private_data;
-	}
-	kfree(from_root);
-#endif
+	pvdrm->gem_cache = pvdrm_cache_new(pvdrm);
+	pvdrm->caching = false;
 	return 0;
 }
 
