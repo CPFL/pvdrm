@@ -67,6 +67,7 @@ struct pvdrm_back_device {
 	bool sequential;
 	struct idr file_idr;
 	spinlock_t file_lock;
+	struct pvdrm_back_file* global;
 };
 
 struct pvdrm_back_vma {

@@ -437,24 +437,24 @@ static void process_slot(struct work_struct* arg)
 	switch (slot->code) {
 	case PVDRM_FILE_OPEN: {
 			struct drm_pvdrm_file_open* req = pvdrm_slot_payload(slot);
-			file = pvdrm_back_file_new(info);
-			if (!file) {
+			struct pvdrm_back_file* target = pvdrm_back_file_new(info);
+			if (!target) {
 				ret = -ENOMEM;
 				break;
 			}
-			req->file = file->handle;
+			req->file = target->handle;
 			ret = 0;
 		}
 		break;
 
 	case PVDRM_FILE_CLOSE: {
 			struct drm_pvdrm_file_close* req = pvdrm_slot_payload(slot);
-			file = pvdrm_back_file_lookup(info, req->file);
-			if (!file) {
+			struct pvdrm_back_file* target = pvdrm_back_file_lookup(info, req->file);
+			if (!target) {
 				ret = -EINVAL;
 				break;
 			}
-			pvdrm_back_file_destroy(file);
+			pvdrm_back_file_destroy(target);
 		}
 		break;
 
@@ -584,9 +584,14 @@ static int polling(void *arg)
 		}
 	}
 
-	PVDRM_INFO("Start main loop.\n");
+	/* Open global file. */
 	fs = get_fs();
 	set_fs(get_ds());
+	info->global = pvdrm_back_file_new(info);
+	BUG_ON(!info->global);
+	pvdrm_back_file_open_if_necessary(info, info->global->handle);
+
+	PVDRM_INFO("Start main loop.\n");
 
 	while (true) {
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
@@ -617,6 +622,7 @@ static int polling(void *arg)
 		}
 	}
 
+	pvdrm_back_file_destroy(info->global);
 	set_fs(fs);
 	PVDRM_INFO("End main loop.\n");
 
