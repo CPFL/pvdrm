@@ -424,12 +424,15 @@ static void process_slot(struct work_struct* arg)
 	/* fs = get_fs(); */
 	/* set_fs(get_ds()); */
 
-	if (slot->file) {
+	if (!info->caching && slot->file) {
 		file = pvdrm_back_file_open_if_necessary(info, slot->file);
 		if (!file) {
 			ret = -EINVAL;
 			goto done;
 		}
+	} else {
+		/* Use global file. */
+		file = info->global;
 	}
 
 	/* Processing slot. */
@@ -650,6 +653,7 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 		BUG();
 	}
 	info->sequential = true;  /* Don't use workqueue for process_slot. false if using workqueue for process_slot. */
+	info->caching = false;
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {
