@@ -407,6 +407,7 @@ static void process_slot(struct work_struct* arg)
 	struct pvdrm_back_device* info = NULL;
 	struct pvdrm_slot* slot = NULL;
 	struct pvdrm_back_file* file = NULL;
+	struct pvdrm_bench bench = { };
 	/* mm_segment_t fs; */
 
 	work = container_of(arg, struct pvdrm_back_work, base);
@@ -417,6 +418,7 @@ static void process_slot(struct work_struct* arg)
 	BUG_ON(!slot);
 
 	PVDRM_INFO("processing slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
+	pvdrm_bench_open(&bench);
 	/* msleep(1000); */
 
 	ret = 0;
@@ -541,7 +543,8 @@ done:
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
-	PVDRM_DEBUG("slot %s:(%d) is done\n", pvdrm_op_str(slot->code), slot->code);
+	pvdrm_bench_close(&bench, NULL);
+	PVDRM_DEBUG("slot %s:(%d) is done with %llums\n", pvdrm_op_str(slot->code), slot->code, bench.elapsed.tv_sec * 1000ULL + (bench.elapsed.tv_nsec / 1000000ULL));
 }
 
 static int polling(void *arg)
