@@ -62,6 +62,8 @@
         V(PVDRM_GEM_NOUVEAU_GEM_CLOSE)\
         V(PVDRM_GEM_NOUVEAU_GEM_MMAP)\
         V(PVDRM_GEM_NOUVEAU_GEM_FAULT)\
+        V(PVDRM_GEM_NOUVEAU_TO_PRIME_FD)\
+        V(PVDRM_GEM_NOUVEAU_FROM_PRIME_FD)\
 
 #define PVDRM_OP_FIRST PVDRM_IOCTL_NOUVEAU_GETPARAM
 #define PVDRM_OP_LAST PVDRM_GEM_NOUVEAU_GEM_FAULT
@@ -169,6 +171,7 @@ struct pvdrm_slot {
 		struct drm_pvdrm_gem_open gem_open;
 		struct drm_pvdrm_gem_mmap gem_mmap;
 		struct drm_pvdrm_gem_fault gem_fault;
+		struct drm_prime_handle gem_prime;
 	};
 
 	// For pushbuf operations.

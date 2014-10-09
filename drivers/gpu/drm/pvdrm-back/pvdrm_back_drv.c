@@ -407,7 +407,7 @@ static void process_slot(struct work_struct* arg)
 	struct pvdrm_back_device* info = NULL;
 	struct pvdrm_slot* slot = NULL;
 	struct pvdrm_back_file* file = NULL;
-	struct pvdrm_bench bench = { };
+	/* struct pvdrm_bench bench = { }; */
 	/* mm_segment_t fs; */
 
 	work = container_of(arg, struct pvdrm_back_work, base);
@@ -418,7 +418,7 @@ static void process_slot(struct work_struct* arg)
 	BUG_ON(!slot);
 
 	PVDRM_INFO("processing slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
-	pvdrm_bench_open(&bench);
+	/* pvdrm_bench_open(&bench); */
 	/* msleep(1000); */
 
 	ret = 0;
@@ -531,6 +531,14 @@ static void process_slot(struct work_struct* arg)
 		ret = process_fault(info, file, slot);
 		break;
 
+	case PVDRM_GEM_NOUVEAU_TO_PRIME_HANDLE:
+		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_HANDLE_TO_FD, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_GEM_NOUVEAU_FROM_PRIME_HANDLE:
+		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_FD_TO_HANDLE, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
 	default:
 		PVDRM_DEBUG("unhandled slot %s:(%d)\n", pvdrm_op_str(slot->code), slot->code);
 		break;
@@ -543,8 +551,8 @@ done:
 
 	/* Emit fence. */
 	pvdrm_fence_emit(&slot->__fence, PVDRM_FENCE_DONE);
-	pvdrm_bench_close(&bench, NULL);
-	PVDRM_DEBUG("slot %s:(%d) is done with %llums\n", pvdrm_op_str(slot->code), slot->code, bench.elapsed.tv_sec * 1000ULL + (bench.elapsed.tv_nsec / 1000000ULL));
+	/* pvdrm_bench_close(&bench, NULL); */
+	/* PVDRM_INFO("slot %s:(%d) is done with %llums\n", pvdrm_op_str(slot->code), slot->code, bench.elapsed.tv_sec * 1000ULL + (bench.elapsed.tv_nsec / 1000000ULL)); */
 }
 
 static int polling(void *arg)
