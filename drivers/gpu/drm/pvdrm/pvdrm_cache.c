@@ -53,11 +53,11 @@ static void debug_dump_cache(struct pvdrm_cache* cache)
 #if 1
 	struct pvdrm_cache_entry* pos;
 	struct pvdrm_cache_entry* temp;
-	PVDRM_DEBUG("Do\n");
+	PVDRM_INFO("Do\n");
 	list_for_each_entry_safe(pos, temp, &cache->entries, head) {
-		PVDRM_DEBUG("  Result obj:(%p) size:(%lx)\n", pos->obj, pos->obj->base.size);
+		PVDRM_INFO("  Result obj:(%p) size:(%lx)\n", pos->obj, pos->obj->base.size);
 	}
-	PVDRM_DEBUG("Done\n");
+	PVDRM_INFO("Done\n");
 #endif
 }
 

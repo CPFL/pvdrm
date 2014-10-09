@@ -72,7 +72,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	struct drm_device* dev = obj->base.dev;
 	struct pvdrm_device* pvdrm = NULL;
 
-	PVDRM_INFO("freeing GEM %lu.\n", (unsigned long)obj);
+	PVDRM_INFO("freeing GEM %lx.\n", (unsigned long)obj);
 	pvdrm = drm_device_to_pvdrm(dev);
 
 	/* FIXME: mmap list should be freed. */

@@ -438,7 +438,6 @@ static void process_slot(struct work_struct* arg)
 	}
 
 	/* Processing slot. */
-	/* FIXME: Need to check in the host side. */
 	switch (slot->code) {
 	case PVDRM_FILE_OPEN: {
 			struct drm_pvdrm_file_open* req = pvdrm_slot_payload(slot);
@@ -523,7 +522,6 @@ static void process_slot(struct work_struct* arg)
 		break;
 
 	case PVDRM_GEM_NOUVEAU_GEM_CLOSE: {
-			/* FIXME: Need to investigate more... */
 			struct pvdrm_back_vma* vma = NULL;
 			struct drm_pvdrm_gem_free* req = pvdrm_slot_payload(slot);
 			struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
@@ -534,9 +532,13 @@ static void process_slot(struct work_struct* arg)
 				ret = -EINVAL;
 				break;
 			}
-			vma = pvdrm_back_vma_find_with_handle(file, req->handle);
-			if (vma) {
-				pvdrm_back_vma_destroy(vma);
+
+			/* FIXME: It's not good solution. */
+			if (atomic_read(&obj->refcount.refcount) == 1) {
+				vma = pvdrm_back_vma_find_with_handle(file, req->handle);
+				if (vma) {
+					pvdrm_back_vma_destroy(vma);
+				}
 			}
 
 			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
@@ -547,8 +549,7 @@ static void process_slot(struct work_struct* arg)
 	case PVDRM_GEM_TO_GLOBAL_HANDLE: {
 			struct drm_pvdrm_gem_global_handle* req = pvdrm_slot_payload(slot);
 			struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
-			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
-			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, pvdrm_back_file_to_drm_file(file), req->handle);
 			if (!obj) {
 				PVDRM_WARN("Invalid making handle to global handle:(%x)\n", req->handle);
 				ret = -EINVAL;
@@ -565,8 +566,7 @@ static void process_slot(struct work_struct* arg)
         case PVDRM_GEM_FROM_GLOBAL_HANDLE: {
 			struct drm_pvdrm_gem_global_handle* req = pvdrm_slot_payload(slot);
 			struct drm_device* dev = pvdrm_back_file_to_drm_device(info->global);
-			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(info->global);
-			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->global);
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, pvdrm_back_file_to_drm_file(info->global), req->global);
 			if (!obj) {
 				PVDRM_WARN("Invalid making global handle to handle:(%x)\n", req->global);
 				ret = -EINVAL;
