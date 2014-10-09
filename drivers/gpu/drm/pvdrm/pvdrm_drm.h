@@ -59,6 +59,7 @@ struct pvdrm_device {
 
 	struct kmem_cache* hosts_cache;
 
+	bool gem_cache_enabled;
 	struct pvdrm_cache* gem_cache;
 	struct workqueue_struct* wq;
 
