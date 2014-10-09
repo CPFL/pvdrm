@@ -383,17 +383,27 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_back_file* 
 	int ret = 0;
 	struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
 	struct drm_pvdrm_gem_mmap* req = pvdrm_slot_payload(slot);
-	struct drm_gem_object* obj = drm_gem_object_lookup(dev, file, req->handle);
+	struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
 	struct pvdrm_back_vma* vma = NULL;
+	struct drm_gem_object* obj = NULL;
 
 	/* FIXME: Maybe, becomes bug... (info->global). */
 	vma = pvdrm_back_vma_find(info->global, req->map_handle);
-	if (!vma) {
-		vma = pvdrm_back_vma_new(info, info->global, obj, req->vm_start, req->vm_end, req->flags, req->map_handle);
-		if (!vma) {
-			BUG();
-		}
+	if (vma) {
+		/* Already mapped. */
+		return 0;
 	}
+
+	obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+	if (!obj) {
+		return -EINVAL;
+	}
+	vma = pvdrm_back_vma_new(info, info->global, obj, req->vm_start, req->vm_end, req->flags, req->map_handle);
+	if (!vma) {
+		drm_gem_object_unreference(obj);
+		return -ENOMEM;
+	}
+	drm_gem_object_unreference(obj);
 
 	/* Call f_op->mmap operation directly since vm_mmap requires current->mm
 	 * is not NULL.
@@ -403,6 +413,7 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_back_file* 
 		BUG();
 		return -EINVAL;
 	}
+
 
 	return ret;
 }
@@ -544,7 +555,7 @@ static void process_slot(struct work_struct* arg)
 				struct pvdrm_back_vma* vma = NULL;
 				vma = pvdrm_back_vma_find_with_gem_object(info->global, obj);
 				if (vma) {
-					pvdrm_back_vma_destroy(vma);
+					pvdrm_back_vma_destroy(vma, info->global);
 				}
 			}
 

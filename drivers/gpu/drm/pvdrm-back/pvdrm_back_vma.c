@@ -52,20 +52,13 @@ struct pvdrm_back_vma* pvdrm_back_vma_find_with_gem_object(struct pvdrm_back_fil
 	return NULL;
 }
 
-void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma)
+void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* file)
 {
-	struct pvdrm_back_file* file = NULL;
 	uint32_t i;
 
 	PVDRM_INFO("Freeing VMA\n");
 
 	if (!vma) {
-		return;
-	}
-
-	file = vma->file;
-	if (!file) {
-		kfree(vma);
 		return;
 	}
 
@@ -97,11 +90,11 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma)
 		list_for_each_entry_safe(pos, temp, &file->vmas, head) {
 			if (pos == vma) {
 				list_del(&pos->head);
-				kfree(pos);
 				break;
 			}
 		}
 	}
+	kfree(vma);
 }
 
 
@@ -151,7 +144,6 @@ struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct
 	vma->base.vm_file = file->filp;
 
 	list_add(&vma->head, &file->vmas);
-	vma->file = file;
 
 	PVDRM_INFO("New vma:(0x%lx) <-> obj:(0x%lx)\n", (unsigned long)vma, (unsigned long)obj);
 
