@@ -5,6 +5,7 @@ pvdrm-y  := \
 	pvdrm_channel.o \
 	pvdrm_drm.o \
 	pvdrm_gem.o \
+	pvdrm_host_table.o \
 	pvdrm_irq.o \
 	pvdrm_load.o \
 	pvdrm_pushbuf.o \

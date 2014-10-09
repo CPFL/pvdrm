@@ -26,66 +26,107 @@
 #include <linux/delay.h>
 
 #include "pvdrm_cache.h"
+#include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_gem.h"
+#include "pvdrm_host_table.h"
 #include "pvdrm_log.h"
+#include "pvdrm_nouveau_abi16.h"
 
-struct pvdrm_cache* pvdrm_cache_new(struct pvdrm_device* device)
+struct pvdrm_cache_entry {
+	struct list_head head;
+	struct drm_pvdrm_gem_object* obj;
+};
+
+struct pvdrm_cache* pvdrm_cache_new(struct pvdrm_device* pvdrm)
 {
 	struct pvdrm_cache* cache;
 	cache = kzalloc(sizeof(struct pvdrm_cache), GFP_KERNEL);
-	INIT_LIST_HEAD(&cache->objects);
+	cache->pvdrm = pvdrm;
+	cache->mem = kmem_cache_create("pvdrm_cache", sizeof(struct pvdrm_cache_entry), 0, 0, NULL);
+	INIT_LIST_HEAD(&cache->entries);
 	return cache;
 }
 
 static void debug_dump_cache(struct pvdrm_cache* cache)
 {
-#if 0
-	struct drm_pvdrm_gem_object* pos;
-	struct drm_pvdrm_gem_object* temp;
+#if 1
+	struct pvdrm_cache_entry* pos;
+	struct pvdrm_cache_entry* temp;
 	PVDRM_DEBUG("Do\n");
-	list_for_each_entry_safe(pos, temp, &cache->objects, cache_head) {
-		PVDRM_DEBUG("  Result %u size:(%lx)\n", pos->host, pos->base.size);
+	list_for_each_entry_safe(pos, temp, &cache->entries, head) {
+		PVDRM_DEBUG("  Result obj:(%p) size:(%lx)\n", pos->obj, pos->obj->base.size);
 	}
 	PVDRM_DEBUG("Done\n");
 #endif
 }
 
 /* FIXME: Should use binary search. */
-void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_pvdrm_gem_object* obj)
+void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_file* file, struct drm_pvdrm_gem_object* obj)
 {
+	int ret;
 	bool inserted = false;
-	struct drm_pvdrm_gem_object* pos;
-	struct drm_pvdrm_gem_object* temp;
-	PVDRM_DEBUG("Inserting %u size:(%lx)\n", obj->host, obj->base.size);
-	list_for_each_entry_safe(pos, temp, &cache->objects, cache_head) {
-		if (obj->base.size > pos->base.size) {
-			list_add_tail(&obj->cache_head, &pos->cache_head);
+	struct pvdrm_cache_entry* new;
+	struct pvdrm_cache_entry* pos;
+	struct pvdrm_cache_entry* temp;
+	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(file);
+
+	new = kmem_cache_alloc(cache->mem, GFP_KERNEL);
+	new->obj = obj;
+	drm_gem_object_reference(&obj->base);   /* Ref cache refernece. */
+
+	if (!obj->global) {
+		/* Generate global handle. */
+		struct drm_pvdrm_gem_global_handle req;
+		uint32_t host = 0;
+
+		ret = pvdrm_host_table_lookup(fpriv->hosts, obj, &host);
+		if (ret) {
+			BUG();
+			return;
+		}
+
+		req = (struct drm_pvdrm_gem_global_handle) {
+			.handle = host,
+			.global = 0xdeadbeef,
+		};
+
+		ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_TO_GLOBAL_HANDLE, &req, sizeof(struct drm_pvdrm_gem_global_handle));
+		obj->global = req.global;
+	}
+
+	PVDRM_DEBUG("Inserting obj:(%p) size:(%lx)\n", obj, obj->base.size);
+	list_for_each_entry_safe(pos, temp, &cache->entries, head) {
+		if (obj->base.size > pos->obj->base.size) {
+			list_add_tail(&new->head, &pos->head);
 			inserted = true;
 			break;
 		}
 	}
 	if (!inserted) {
-		list_add_tail(&obj->cache_head, &cache->objects);
+		list_add_tail(&new->head, &cache->entries);
 	}
 	debug_dump_cache(cache);
 }
 
 struct drm_pvdrm_gem_object* pvdrm_cache_fit(struct pvdrm_cache* cache, unsigned long size)
 {
-	struct drm_pvdrm_gem_object* best = NULL;
-	struct drm_pvdrm_gem_object* pos;
-	struct drm_pvdrm_gem_object* temp;
-	list_for_each_entry_safe(pos, temp, &cache->objects, cache_head) {
-		PVDRM_DEBUG("Dumping for %u host:(%u) size:(%lx) best:(%p)\n", size, pos->handle, pos->base.size, best);
-		if (size > pos->base.size) {
+	struct pvdrm_cache_entry* best = NULL;
+	struct pvdrm_cache_entry* pos;
+	struct pvdrm_cache_entry* temp;
+	struct drm_pvdrm_gem_object* obj = NULL;
+	list_for_each_entry_safe(pos, temp, &cache->entries, head) {
+		PVDRM_DEBUG("Dumping for %lu obj:(%p) size:(%lx) best:(%p)\n", size, pos->obj, pos->obj->base.size, best);
+		if (size > pos->obj->base.size) {
 			break;
 		}
 		best = pos;
 	}
 	if (best) {
-		list_del(&best->cache_head);
+		list_del(&best->head);
+		kmem_cache_free(cache->mem, best);
+		obj = best->obj;
 	}
 	debug_dump_cache(cache);
-	return best;
+	return obj;
 }

@@ -124,11 +124,11 @@ int pvdrm_nouveau_gem_ioctl_cpu_prep(struct drm_device *dev, void *data, struct 
 	if (!obj) {
 		return -EINVAL;
 	}
-	req->handle = obj->host;
+	req->handle = pvdrm_gem_host(drm_file_to_fpriv(file), obj);
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_CPU_PREP, data, sizeof(struct drm_nouveau_gem_cpu_prep));
 
-	req->handle = obj->handle;
+	req->handle = handle;
 	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
@@ -144,11 +144,11 @@ int pvdrm_nouveau_gem_ioctl_cpu_fini(struct drm_device *dev, void *data, struct 
 	if (!obj) {
 		return -EINVAL;
 	}
-	req->handle = obj->host;
+	req->handle = pvdrm_gem_host(drm_file_to_fpriv(file), obj);
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_CPU_FINI, data, sizeof(struct drm_nouveau_gem_cpu_fini));
 
-	req->handle = obj->handle;
+	req->handle = handle;
 	drm_gem_object_unreference(&obj->base);
 	return ret;
 }
@@ -164,14 +164,14 @@ int pvdrm_nouveau_gem_ioctl_info(struct drm_device *dev, void *data, struct drm_
 	if (!obj) {
 		return -EINVAL;
 	}
-	req->handle = obj->host;
+	req->handle = pvdrm_gem_host(drm_file_to_fpriv(file), obj);
 
 	ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_INFO, data, sizeof(struct drm_nouveau_gem_info));
 	if (obj->hash.key == -1) {
 		pvdrm_gem_register_host_info(dev, file, obj, req);
 	}
 
-	req->handle = obj->handle;
+	req->handle = handle;
 	drm_gem_object_unreference(&obj->base);
 	return ret;
 }

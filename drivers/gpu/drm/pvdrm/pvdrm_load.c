@@ -25,6 +25,7 @@
 #include "pvdrm_cache.h"
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
+#include "pvdrm_host_table.h"
 #include "pvdrm_load.h"
 #include "pvdrm_log.h"
 #include "pvdrm_slot.h"
@@ -36,7 +37,7 @@ int pvdrm_connected(struct pvdrm_device* pvdrm, struct drm_device *dev)
 {
 	pvdrm_slots_init(pvdrm);
 	pvdrm->gem_cache = pvdrm_cache_new(pvdrm);
-	pvdrm->caching = false;
+	pvdrm->hosts_cache = kmem_cache_create("pvdrm_host_table", sizeof(struct pvdrm_host_table_entry), 0, 0, NULL);
 	return 0;
 }
 
@@ -104,9 +105,11 @@ static int pvdrm_nouveau_global_call(struct drm_device* dev, int code, void *dat
 
 int pvdrm_open(struct drm_device* dev, struct drm_file* file)
 {
+	int ret = 0;
 	struct drm_pvdrm_file_open req = { 0 };
 	struct pvdrm_fpriv* fpriv = NULL;
-	int ret = 0;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
+
 	ret = pvdrm_nouveau_global_call(dev, PVDRM_FILE_OPEN, &req, sizeof(struct drm_pvdrm_file_open));
 	if (ret) {
 		goto fail_hypercall;
@@ -120,6 +123,7 @@ int pvdrm_open(struct drm_device* dev, struct drm_file* file)
 
 	fpriv->host = req.file;
 	fpriv->file = file;
+	fpriv->hosts = pvdrm_host_table_new(pvdrm);
 
 	file->driver_priv = fpriv;
 

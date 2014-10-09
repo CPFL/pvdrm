@@ -27,14 +27,13 @@
 #include "drmP.h"
 #include "nouveau_drm.h"
 
+struct pvdrm_fpriv;
+
 struct drm_pvdrm_gem_object {
 	struct drm_gem_object base;
 	struct drm_hash_item hash;
-	struct list_head cache_head;
-	struct drm_file* file;
 	struct drm_nouveau_gem_info info;
-	uint32_t handle;
-	uint32_t host;
+	uint32_t global;
 	uint32_t domain;
 	uint64_t map_handle;
 	bool cacheable;
@@ -42,6 +41,7 @@ struct drm_pvdrm_gem_object {
 	unsigned long backing;  /* Backing stone for VRAM mapping. */
 };
 
+uint32_t pvdrm_gem_host(struct pvdrm_fpriv* fpriv, struct drm_pvdrm_gem_object* obj);
 int pvdrm_gem_refcount(const struct drm_pvdrm_gem_object* obj);
 int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 int pvdrm_gem_object_init(struct drm_gem_object *obj);
@@ -50,7 +50,7 @@ int pvdrm_gem_object_open(struct drm_gem_object *obj, struct drm_file *file);
 void pvdrm_gem_object_close(struct drm_gem_object *obj, struct drm_file *file);
 int pvdrm_gem_object_new(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_gem_new *req_out, struct drm_pvdrm_gem_object** result);
 struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle);
-struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, struct drm_file *file, uint32_t host, uint32_t size);
+struct drm_pvdrm_gem_object* pvdrm_gem_alloc_object(struct drm_device *dev, struct drm_file *file, uint32_t host, uint32_t size, uint32_t* handle);
 void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file, struct drm_pvdrm_gem_object* obj, struct drm_nouveau_gem_info* info);
 
 int pvdrm_gem_mmap(struct file *filp, struct vm_area_struct *vma);

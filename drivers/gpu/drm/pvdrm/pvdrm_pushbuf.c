@@ -138,7 +138,7 @@ static int transfer(struct drm_device* dev, struct drm_file* file, struct pushbu
 				PVDRM_ERROR("pushbuf No valid obj with handle %u.\n", handle);
 				return -EINVAL;
 			}
-			buffers[i].handle = obj->host;
+			buffers[i].handle = pvdrm_gem_host(drm_file_to_fpriv(file), obj);
 			drm_gem_object_unreference(&obj->base);
 		}
 

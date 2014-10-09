@@ -27,15 +27,18 @@
 #include "drmP.h"
 #include "nouveau_drm.h"
 
+struct pvdrm_device;
+
 struct pvdrm_cache {
-	struct list_head objects;
+	struct pvdrm_device* pvdrm;
+	struct kmem_cache* mem;
+	struct list_head entries;
 };
 
-struct pvdrm_device;
 struct drm_pvdrm_gem_object;
 
 struct pvdrm_cache* pvdrm_cache_new(struct pvdrm_device* device);
-void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_pvdrm_gem_object* obj);
+void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_file* file, struct drm_pvdrm_gem_object* obj);
 struct drm_pvdrm_gem_object* pvdrm_cache_fit(struct pvdrm_cache* cache, unsigned long size);
 
 #endif  /* PVDRM_CACHE_H_ */

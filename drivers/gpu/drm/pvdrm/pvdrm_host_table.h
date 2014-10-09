@@ -21,49 +21,31 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_DRM_H_
-#define PVDRM_DRM_H_
+
+#ifndef PVDRM_HOST_TABLE_H_
+#define PVDRM_HOST_TABLE_H_
+
+#include <linux/types.h>
 
 #include "drmP.h"
 
-#include "pvdrm_cache.h"
-#include "pvdrm_slot.h"
-#include "pvdrm_ttm.h"
+struct drm_pvdrm_gem_object;
 
-#define DRIVER_AUTHOR		"Yusuke Suzuki"
-
-#define DRIVER_NAME		"pvdrm"
-#define DRIVER_DESC		"PVDRM driver"
-#define DRIVER_DATE		"20140731"
-
-#define DRIVER_MAJOR		1
-#define DRIVER_MINOR		0
-#define DRIVER_PATCHLEVEL	0
-
-struct pvdrm_host_table;
-
-struct pvdrm_fpriv {
-	struct drm_file* file;
-	int32_t host;
-	struct pvdrm_host_table* hosts;
+struct pvdrm_host_table_entry {
+	struct drm_hash_item hash;
+	uint32_t host;
 };
 
-struct pvdrm_device {
-	struct drm_device* dev;
-	struct pvdrm_slots* slots;
-	struct pvdrm_ttm* ttm;
-	struct drm_open_hash mh2obj;
-	spinlock_t mh2obj_lock;
-	struct idr channels_idr;
-	spinlock_t channels_lock;
-
-	struct kmem_cache* hosts_cache;
-
-	struct pvdrm_cache* gem_cache;
-	struct workqueue_struct* wq;
-
-        struct pvdrm_fpriv global_fpriv;
-        struct file* global_filp;
+struct pvdrm_host_table {
+	struct pvdrm_device* pvdrm;
+	struct drm_open_hash hosts;
+	struct kmem_cache* cache;
+	spinlock_t lock;
 };
 
-#endif  /* PVDRM_DRM_H_ */
+struct pvdrm_host_table* pvdrm_host_table_new(struct pvdrm_device* pvdrm);
+int pvdrm_host_table_insert(struct pvdrm_host_table* table, struct drm_pvdrm_gem_object* obj, uint32_t host);
+int pvdrm_host_table_remove(struct pvdrm_host_table* table, struct drm_pvdrm_gem_object* obj);
+int pvdrm_host_table_lookup(struct pvdrm_host_table* table, struct drm_pvdrm_gem_object* obj, uint32_t* host);
+
+#endif  /* PVDRM_HOST_TABLE_H_ */
