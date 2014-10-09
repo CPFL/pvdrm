@@ -252,7 +252,9 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 	if (mappable) {
 		if (obj->domain & NOUVEAU_GEM_DOMAIN_GART) {
 			PVDRM_INFO("Caching %p with refcount:(%d)\n", obj, pvdrm_gem_refcount(obj));
-			obj->cacheable = true;
+			if (pvdrm->gem_cache_enabled) {
+				obj->cacheable = true;
+			}
 		} else if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
 		}
 	}
