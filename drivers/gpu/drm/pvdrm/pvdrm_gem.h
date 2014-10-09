@@ -32,7 +32,6 @@ struct pvdrm_fpriv;
 struct drm_pvdrm_gem_object {
 	struct drm_gem_object base;
 	struct drm_hash_item hash;
-	struct drm_nouveau_gem_info info;
 	uint32_t global;
 	uint32_t domain;
 	uint64_t map_handle;
