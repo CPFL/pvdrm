@@ -87,7 +87,7 @@ struct drm_ioctl_desc pvdrm_nouveau_ioctls[] = {
 };
 
 static struct drm_driver pvdrm_drm_driver = {
-        .driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM,  /* DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM , */
+        .driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM,  /* DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM  | DRIVER_PRIME, */
 	.load       = pvdrm_load,
 	.unload     = pvdrm_unload,
 
@@ -103,6 +103,13 @@ static struct drm_driver pvdrm_drm_driver = {
 
 	.fops   = &pvdrm_fops,
 	.irq_handler = pvdrm_irq_handler,
+
+#if 0
+	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
+	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+	.gem_prime_export = pvdrm_gem_prime_export,
+	.gem_prime_import = pvdrm_gem_prime_import,
+#endif
 
 	.get_vblank_counter = pvdrm_vblank_get_counter,
 	.enable_vblank = pvdrm_vblank_enable,
