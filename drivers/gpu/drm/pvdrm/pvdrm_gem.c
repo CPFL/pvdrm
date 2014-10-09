@@ -237,6 +237,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 			return -ENOMEM;
 		}
 		pvdrm_gem_register_host_info(dev, file, obj, &req_out->info);
+		PVDRM_INFO("Allocating %p with refcount:(%d) domain:(%u)\n", obj, pvdrm_gem_refcount(obj), obj->domain);
 	}
 
 	BUG_ON(!obj);
@@ -245,8 +246,6 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 	req_out->info.handle = handle;
 
 	*result = obj;
-
-	PVDRM_INFO("Allocating %p with refcount:(%d) domain:(%u)\n", obj, pvdrm_gem_refcount(obj), obj->domain);
 
 	/* Caching the memory. */
 	if (mappable) {
