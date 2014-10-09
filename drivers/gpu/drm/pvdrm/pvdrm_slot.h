@@ -43,6 +43,14 @@
         /* file operations. */\
         V(PVDRM_FILE_OPEN)\
         V(PVDRM_FILE_CLOSE)\
+        V(PVDRM_GEM_TO_PRIME_FD)\
+        V(PVDRM_GEM_FROM_PRIME_FD)\
+	\
+	/* Extended API for PVDRM. */\
+        V(PVDRM_GEM_TO_GLOBAL_HANDLE)\
+        V(PVDRM_GEM_FROM_GLOBAL_HANDLE)\
+	\
+	/* Nouveau extensions. */\
 	/* ioctls. */\
         V(PVDRM_IOCTL_NOUVEAU_GETPARAM)\
         /* PVDRM_IOCTL_NOUVEAU_SETPARAM */\
@@ -61,9 +69,7 @@
         V(PVDRM_GEM_NOUVEAU_GEM_OPEN)\
         V(PVDRM_GEM_NOUVEAU_GEM_CLOSE)\
         V(PVDRM_GEM_NOUVEAU_GEM_MMAP)\
-        V(PVDRM_GEM_NOUVEAU_GEM_FAULT)\
-        V(PVDRM_GEM_NOUVEAU_TO_PRIME_FD)\
-        V(PVDRM_GEM_NOUVEAU_FROM_PRIME_FD)\
+        V(PVDRM_GEM_NOUVEAU_GEM_FAULT)
 
 #define PVDRM_OP_FIRST PVDRM_IOCTL_NOUVEAU_GETPARAM
 #define PVDRM_OP_LAST PVDRM_GEM_NOUVEAU_GEM_FAULT
@@ -117,6 +123,11 @@ struct drm_pvdrm_gem_open {
 	uint32_t handle;
 };
 
+struct drm_pvdrm_gem_global_handle {
+	uint32_t handle;
+	uint32_t global;
+};
+
 struct drm_pvdrm_gem_mmap {
 	uint64_t map_handle;
 	unsigned int flags;
@@ -150,6 +161,10 @@ struct pvdrm_slot {
 
 	union {
 		uint64_t __payload;  /* To calculate palyload address. */
+
+		struct drm_pvdrm_file_open file_open;
+		struct drm_pvdrm_file_close file_close;
+		struct drm_pvdrm_gem_global_handle gem_global;
 
 		/* ioctl */
 		struct drm_nouveau_getparam getparam;

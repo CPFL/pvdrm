@@ -426,7 +426,7 @@ static void process_slot(struct work_struct* arg)
 	/* fs = get_fs(); */
 	/* set_fs(get_ds()); */
 
-	if (!info->caching && slot->file) {
+	if (slot->file) {
 		file = pvdrm_back_file_open_if_necessary(info, slot->file);
 		if (!file) {
 			ret = -EINVAL;
@@ -461,6 +461,14 @@ static void process_slot(struct work_struct* arg)
 			}
 			pvdrm_back_file_destroy(target);
 		}
+		break;
+
+	case PVDRM_GEM_TO_PRIME_FD:
+		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_HANDLE_TO_FD, (unsigned long)pvdrm_slot_payload(slot));
+		break;
+
+	case PVDRM_GEM_FROM_PRIME_FD:
+		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_FD_TO_HANDLE, (unsigned long)pvdrm_slot_payload(slot));
 		break;
 
 	case PVDRM_IOCTL_NOUVEAU_GETPARAM:
@@ -516,7 +524,7 @@ static void process_slot(struct work_struct* arg)
 				pvdrm_back_vma_destroy(vma);
 			}
 
-			drm_gem_object_unreference(obj);
+			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
 			ret = drm_gem_handle_delete(file_priv, req->handle);
 		}
 		break;
@@ -531,12 +539,39 @@ static void process_slot(struct work_struct* arg)
 		ret = process_fault(info, file, slot);
 		break;
 
-	case PVDRM_GEM_NOUVEAU_TO_PRIME_HANDLE:
-		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_HANDLE_TO_FD, (unsigned long)pvdrm_slot_payload(slot));
+	case PVDRM_GEM_TO_GLOBAL_HANDLE: {
+			struct drm_pvdrm_gem_global_handle* req = pvdrm_slot_payload(slot);
+			struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
+			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+			if (!obj) {
+				PVDRM_WARN("Invalid making handle to global handle:(%x)\n", req->handle);
+				return;
+			}
+
+			/* Generate global handle. */
+			ret = drm_gem_handle_create(pvdrm_back_file_to_drm_file(info->global), obj, &req->global);
+
+			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
+		}
 		break;
 
-	case PVDRM_GEM_NOUVEAU_FROM_PRIME_HANDLE:
-		ret = drm_ioctl(file->filp, DRM_IOCTL_PRIME_FD_TO_HANDLE, (unsigned long)pvdrm_slot_payload(slot));
+        case PVDRM_GEM_FROM_GLOBAL_HANDLE: {
+			struct drm_pvdrm_gem_global_handle* req = pvdrm_slot_payload(slot);
+			struct drm_device* dev = pvdrm_back_file_to_drm_device(info->global);
+			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(info->global);
+			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->global);
+			if (!obj) {
+				PVDRM_WARN("Invalid making global handle to handle:(%x)\n", req->global);
+				return;
+			}
+
+			/* Adapt global handle. */
+			ret = drm_gem_handle_create(pvdrm_back_file_to_drm_file(file), obj, &req->handle);
+
+			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
+
+		}
 		break;
 
 	default:
@@ -664,7 +699,6 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 		BUG();
 	}
 	info->sequential = true;  /* Don't use workqueue for process_slot. false if using workqueue for process_slot. */
-	info->caching = false;
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {

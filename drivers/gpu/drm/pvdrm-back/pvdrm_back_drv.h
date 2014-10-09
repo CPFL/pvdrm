@@ -65,7 +65,6 @@ struct pvdrm_back_device {
 	struct pvdrm_back_work works[PVDRM_SLOT_NR];
 	struct workqueue_struct* wq;
 	bool sequential;
-	bool caching;
 	struct idr file_idr;
 	spinlock_t file_lock;
 	struct pvdrm_back_file* global;
