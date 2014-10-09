@@ -61,6 +61,21 @@ static void debug_dump_cache(struct pvdrm_cache* cache)
 #endif
 }
 
+static bool compare(struct drm_pvdrm_gem_object* lhs, struct drm_pvdrm_gem_object* rhs)
+{
+	if (lhs->base.size > rhs->base.size) {
+		return true;
+	} else if (lhs->base.size < rhs->base.size) {
+		return false;
+	}
+
+	if (lhs > rhs) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 /* FIXME: Should use binary search. */
 void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_file* file, struct drm_pvdrm_gem_object* obj)
 {
@@ -98,7 +113,7 @@ void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_file* file, struct
 
 	PVDRM_DEBUG("Inserting obj:(%p) size:(%lx)\n", obj, obj->base.size);
 	list_for_each_entry_safe(pos, temp, &cache->entries, head) {
-		if (obj->base.size > pos->obj->base.size) {
+		if (compare(obj, pos->obj)) {
 			list_add_tail(&new->head, &pos->head);
 			inserted = true;
 			break;

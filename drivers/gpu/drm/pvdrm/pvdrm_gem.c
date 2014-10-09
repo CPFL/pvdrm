@@ -250,7 +250,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 
 	/* Caching the memory. */
 	if (mappable) {
-		if (obj->domain & NOUVEAU_GEM_DOMAIN_GART) {
+		if (dma) {
 			PVDRM_INFO("Caching %p with refcount:(%d)\n", obj, pvdrm_gem_refcount(obj));
 			if (pvdrm->gem_cache_enabled) {
 				obj->cacheable = true;
@@ -304,7 +304,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	spin_unlock_irqrestore(&pvdrm->mh2obj_lock, flags);
 
 	/* This gem is iomem. */
-	if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
+	if (!obj->backing && obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
 		obj->backing = __get_free_pages(GFP_KERNEL, get_order(obj->base.size));
 	}
 
@@ -315,6 +315,20 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));
 
 	drm_gem_vm_open(vma);
+
+	if (obj->cacheable && obj->pages) {
+		for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
+			struct page* page = obj->pages[i];
+			if (page) {
+				unsigned long pfn = page_to_pfn(page);
+				ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, pfn);
+				if (ret) {
+					BUG();
+				}
+			}
+		}
+		return ret;
+	}
 
 	req = (struct drm_pvdrm_gem_mmap) {
 		.map_handle = obj->map_handle,
@@ -330,22 +344,10 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	}
 
 	if (obj->cacheable) {
-		if (!obj->pages) {
-			/* Remap previously resolved pages. */
-			/* FIXME: Page size alignment. */
-			obj->pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
-		} else {
-			for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
-				struct page* page = obj->pages[i];
-				if (page) {
-					unsigned long pfn = page_to_pfn(page);
-					ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + PAGE_SIZE * i, pfn);
-					if (ret) {
-						BUG();
-					}
-				}
-			}
-		}
+		/* Remap previously resolved pages. */
+		/* FIXME: Page size alignment. */
+		BUG_ON(obj->pages);
+		obj->pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
 	}
 
 	return ret;
@@ -367,6 +369,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct pvdrm_slot* slot = NULL;
 
 	if (is_iomem) {
+		BUG_ON(!obj->backing);
 		backing = virt_to_pfn(obj->backing) + (offset >> PAGE_SHIFT);
 	}
 
