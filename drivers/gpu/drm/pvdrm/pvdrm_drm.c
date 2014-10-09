@@ -46,8 +46,8 @@
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
 #include "pvdrm_gem.h"
+#include "pvdrm_host_table.h"
 #include "pvdrm_irq.h"
-#include "pvdrm_load.h"
 #include "pvdrm_log.h"
 #include "pvdrm_vblank.h"
 
@@ -88,12 +88,12 @@ struct drm_ioctl_desc pvdrm_nouveau_ioctls[] = {
 
 static struct drm_driver pvdrm_drm_driver = {
         .driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM,  /* DRIVER_HAVE_IRQ | DRIVER_MODESET | DRIVER_GEM  | DRIVER_PRIME, */
-	.load       = pvdrm_load,
-	.unload     = pvdrm_unload,
+	.load       = pvdrm_drm_load,
+	.unload     = pvdrm_drm_unload,
 
-	.open       = pvdrm_open,
-	.preclose   = pvdrm_preclose,
-	.postclose  = pvdrm_postclose,
+	.open       = pvdrm_drm_open,
+	.preclose   = pvdrm_drm_preclose,
+	.postclose  = pvdrm_drm_postclose,
 
 	.gem_init_object  = pvdrm_gem_object_init,
 	.gem_free_object  = pvdrm_gem_object_free,
@@ -122,6 +122,122 @@ static struct drm_driver pvdrm_drm_driver = {
 	.minor      = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
+
+/* Called after backend is connected. */
+/* FIXME: There's no memory free. */
+int pvdrm_drm_init(struct pvdrm_device* pvdrm, struct drm_device *dev)
+{
+	pvdrm_slots_init(pvdrm);
+	pvdrm->gem_cache = pvdrm_cache_new(pvdrm);
+	pvdrm->hosts_cache = kmem_cache_create("pvdrm_host_table", sizeof(struct pvdrm_host_table_entry), 0, 0, NULL);
+	return 0;
+}
+
+int pvdrm_drm_load(struct drm_device *dev, unsigned long flags)
+{
+	struct pvdrm_device *pvdrm = NULL;
+	int ret = 0;
+
+	pvdrm = kzalloc(sizeof(struct pvdrm_device), GFP_KERNEL);
+	if (!pvdrm) {
+		return -ENOMEM;
+        }
+
+	/* Configure it. */
+	dev->dev_private = (void*)pvdrm;
+	pvdrm->dev = dev;
+
+	if (drm_ht_create(&pvdrm->mh2obj, 16)) {
+		goto out;
+	}
+	spin_lock_init(&pvdrm->mh2obj_lock);
+
+	idr_init(&pvdrm->channels_idr);
+	spin_lock_init(&pvdrm->channels_lock);
+	pvdrm->wq = alloc_workqueue("pvdrm", WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_NON_REENTRANT, 0);
+	if (!pvdrm->wq) {
+		BUG();
+	}
+
+	PVDRM_INFO("loaded.\n");
+out:
+	if (ret)
+		pvdrm_drm_unload(dev);
+
+	return ret;
+}
+
+int pvdrm_drm_unload(struct drm_device *dev)
+{
+	struct pvdrm_device *pvdrm = NULL;
+	int ret = 0;
+
+	pvdrm = drm_device_to_pvdrm(dev);
+	if (pvdrm) {
+		pvdrm_slots_release(pvdrm);
+		kfree(pvdrm);
+		dev->dev_private = NULL;
+	}
+
+	return ret;
+}
+
+static int pvdrm_nouveau_global_call(struct drm_device* dev, int code, void *data, size_t size)
+{
+	struct pvdrm_device* pvdrm;
+	int ret;
+	pvdrm = drm_device_to_pvdrm(dev);
+	{
+		struct pvdrm_slot* slot = pvdrm_slot_alloc(pvdrm, PVDRM_FILE_GLOBAL_HANDLE);
+		ret = pvdrm_slot_call(pvdrm, slot, code, data, size);
+		pvdrm_slot_free(pvdrm, slot);
+	}
+	return ret;
+}
+
+int pvdrm_drm_open(struct drm_device* dev, struct drm_file* file)
+{
+	int ret = 0;
+	struct drm_pvdrm_file_open req = { 0 };
+	struct pvdrm_fpriv* fpriv = NULL;
+	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
+
+	ret = pvdrm_nouveau_global_call(dev, PVDRM_FILE_OPEN, &req, sizeof(struct drm_pvdrm_file_open));
+	if (ret) {
+		goto fail_hypercall;
+	}
+
+	fpriv = kzalloc(sizeof(*fpriv), GFP_KERNEL);
+	if (!fpriv) {
+		ret = -ENOMEM;
+		goto fail_hypercall;
+	}
+
+	fpriv->host = req.file;
+	fpriv->file = file;
+	fpriv->hosts = pvdrm_host_table_new(pvdrm);
+
+	file->driver_priv = fpriv;
+
+	return ret;
+
+fail_hypercall:
+	return ret;
+}
+
+void pvdrm_drm_preclose(struct drm_device *dev, struct drm_file *file)
+{
+}
+
+void pvdrm_drm_postclose(struct drm_device *dev, struct drm_file *file)
+{
+	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(file);
+	struct drm_pvdrm_file_close req = {
+		.file = fpriv->host,
+	};
+	pvdrm_nouveau_global_call(dev, PVDRM_FILE_CLOSE, &req, sizeof(struct drm_pvdrm_file_close));
+	kfree(fpriv);
+}
 
 static int __devinit pvdrm_probe(struct xenbus_device *xbdev, const struct xenbus_device_id *id)
 {
@@ -164,7 +280,7 @@ static int pvdrm_connect(struct xenbus_device *xbdev)
 	PVDRM_INFO("CONNECTED.\n");
 
         pvdrm = xbdev_to_pvdrm(xbdev);
-        pvdrm_connected(pvdrm, xbdev_to_drm_device(xbdev));
+        pvdrm_drm_init(pvdrm, xbdev_to_drm_device(xbdev));
 
 	PVDRM_INFO("setting counter-ref.\n");
         {

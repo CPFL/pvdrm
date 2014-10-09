@@ -216,10 +216,11 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 		if (obj) {
 			/* FIXME: channel_hint and align are not considered. */
 			struct drm_pvdrm_gem_global_handle req = {
-				.handle = 0xdeadbeef,
+				.handle = 0,
 				.global = obj->global,
 			};
 			ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_FROM_GLOBAL_HANDLE, &req, sizeof(struct drm_pvdrm_gem_global_handle));
+			BUG_ON(req.handle == 0);
 			memcpy(&req_out->info, &obj->info, sizeof(obj->info));
 			register_handle(file, obj, req.handle, &handle);
 			PVDRM_INFO("Reviving %p with refcount:(%d) domain:(%u)\n", obj, pvdrm_gem_refcount(obj), obj->domain);

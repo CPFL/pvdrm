@@ -66,4 +66,11 @@ struct pvdrm_device {
         struct file* global_filp;
 };
 
+int pvdrm_drm_init(struct pvdrm_device* pvdrm, struct drm_device *dev);
+int pvdrm_drm_load(struct drm_device *dev, unsigned long flags);
+int pvdrm_drm_unload(struct drm_device *dev);
+int pvdrm_drm_open(struct drm_device *dev, struct drm_file *file);
+void pvdrm_drm_preclose(struct drm_device *dev, struct drm_file *file);
+void pvdrm_drm_postclose(struct drm_device *dev, struct drm_file *file);
+
 #endif  /* PVDRM_DRM_H_ */

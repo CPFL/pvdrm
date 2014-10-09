@@ -88,10 +88,11 @@ void pvdrm_cache_insert(struct pvdrm_cache* cache, struct drm_file* file, struct
 
 		req = (struct drm_pvdrm_gem_global_handle) {
 			.handle = host,
-			.global = 0xdeadbeef,
+			.global = 0,
 		};
 
 		ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_TO_GLOBAL_HANDLE, &req, sizeof(struct drm_pvdrm_gem_global_handle));
+		BUG_ON(req.global == 0);
 		obj->global = req.global;
 	}
 
