@@ -112,7 +112,7 @@ void pvdrm_back_file_destroy(struct pvdrm_back_file* file)
 		struct pvdrm_back_vma* pos;
 		struct pvdrm_back_vma* temp;
 		list_for_each_entry_safe(pos, temp, &file->vmas, head) {
-			pvdrm_back_vma_destroy(pos);  /* vma is automatically unlinked by this call. */
+			pvdrm_back_vma_destroy(pos, file);  /* vma is automatically unlinked by this call. */
 		}
 	}
 

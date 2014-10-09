@@ -183,7 +183,6 @@ void pvdrm_gem_register_host_info(struct drm_device* dev, struct drm_file *file,
 
 	obj->domain = info->domain;
 	obj->map_handle = info->map_handle;
-	memcpy(&obj->info, info, sizeof(*info));
 
 	/* Setup mh2obj ht. */
 	/* FIXME: lookup is needed? (for duplicate items) */
@@ -214,15 +213,21 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 	if (mappable && dma) {
 		obj = pvdrm_cache_fit(pvdrm->gem_cache, req_out->info.size);
 		if (obj) {
-			/* FIXME: channel_hint and align are not considered. */
-			struct drm_pvdrm_gem_global_handle req = {
-				.handle = 0,
-				.global = obj->global,
-			};
-			ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_FROM_GLOBAL_HANDLE, &req, sizeof(struct drm_pvdrm_gem_global_handle));
-			BUG_ON(req.handle == 0);
-			memcpy(&req_out->info, &obj->info, sizeof(obj->info));
-			register_handle(file, obj, req.handle, &handle);
+			uint32_t host = 0;
+			{
+				struct drm_pvdrm_gem_global_handle req = {
+					.handle = 0,
+					.global = obj->global,
+				};
+				ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_FROM_GLOBAL_HANDLE, &req, sizeof(struct drm_pvdrm_gem_global_handle));
+				BUG_ON(req.handle == 0);
+				host = req.handle;
+			}
+			register_handle(file, obj, host, &handle);
+			{
+				req_out->info.handle = host;
+				ret = pvdrm_nouveau_abi16_ioctl(file, PVDRM_IOCTL_NOUVEAU_GEM_INFO, &req_out->info, sizeof(struct drm_nouveau_gem_info));
+			}
 			PVDRM_INFO("Reviving %p with refcount:(%d) domain:(%u)\n", obj, pvdrm_gem_refcount(obj), obj->domain);
 		}
 	}

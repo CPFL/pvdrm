@@ -77,17 +77,14 @@ struct pvdrm_back_vma {
 	pte_t** pteps;
 	int* refs;
 	uint64_t map_handle;
-	uint32_t handle;
 	uint32_t pages;
 	struct drm_gem_object* obj;
-	struct pvdrm_back_file* file;
 };
 
 struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_file* file, uint64_t map_handle);
-struct pvdrm_back_vma* pvdrm_back_vma_find_with_handle(struct pvdrm_back_file* file, uint64_t handle);
 struct pvdrm_back_vma* pvdrm_back_vma_find_with_gem_object(struct pvdrm_back_file* file, const struct drm_gem_object* obj);
-struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle);
-void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma);
+struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct drm_gem_object* obj, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle);
+void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* file);
 
 static inline struct drm_file* pvdrm_back_file_to_drm_file(struct pvdrm_back_file* file)
 {
