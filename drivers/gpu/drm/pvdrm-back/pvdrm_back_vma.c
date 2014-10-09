@@ -39,19 +39,6 @@ struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_file* file, uint64_
 	return NULL;
 }
 
-struct pvdrm_back_vma* pvdrm_back_vma_find_with_handle(struct pvdrm_back_file* file, uint64_t handle)
-{
-	struct list_head *listptr;
-	struct pvdrm_back_vma* vma = NULL;
-	list_for_each(listptr, &file->vmas) {
-		vma = list_entry(listptr, struct pvdrm_back_vma, head);
-		if (vma->handle == handle) {
-			return vma;
-		}
-	}
-	return NULL;
-}
-
 struct pvdrm_back_vma* pvdrm_back_vma_find_with_gem_object(struct pvdrm_back_file* file, const struct drm_gem_object* obj)
 {
 	struct list_head *listptr;
@@ -118,22 +105,12 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma)
 }
 
 
-struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle, uint32_t handle)
+struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct drm_gem_object* obj, uintptr_t start, uintptr_t end, unsigned long flags, unsigned long long map_handle)
 {
 	unsigned long pages;
 	unsigned long long size;
 	uintptr_t addr;
 	struct pvdrm_back_vma* vma;
-	struct drm_gem_object* obj = NULL;
-	struct drm_device* dev = NULL;
-	struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
-
-	dev = pvdrm_back_file_to_drm_device(file);
-
-	obj = drm_gem_object_lookup(dev, file_priv, handle);
-	if (!obj) {
-		return NULL;
-	}
 
 	size = (end - start);
 	pages = size >> PAGE_SHIFT;
@@ -147,7 +124,6 @@ struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct
 	vma->pages = pages;
 	vma->pteps = kzalloc(sizeof(pte_t*) * (pages + 1), GFP_KERNEL);
 	vma->obj = obj;
-	vma->handle = handle;
 	if (!vma->pteps) {
 		BUG();
 	}
@@ -178,8 +154,6 @@ struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct
 	vma->file = file;
 
 	PVDRM_INFO("New vma:(0x%lx) <-> obj:(0x%lx)\n", (unsigned long)vma, (unsigned long)obj);
-
-	drm_gem_object_unreference(obj);
 
 	return vma;
 }
