@@ -292,7 +292,6 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	uint64_t page_offset = 0;
 	uint32_t max;
 	uint32_t max_limited_by_vm_end;
-	bool already_faulted = false;
 	struct pvdrm_mapping* refs = NULL;
 	struct drm_pvdrm_gem_fault* req = pvdrm_slot_payload(slot);
 	struct pvdrm_back_vma* vma = NULL;
@@ -306,30 +305,6 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 
 	page_offset = req->offset >> PAGE_SHIFT;
 	PVDRM_DEBUG("Fault.... start with %llu, offset:(0x%lx) (0x%lx => 0x%lx . 0x%lx)\n", (unsigned long long)page_offset, (unsigned long)req->offset, vma->base.vm_start, vma->base.vm_end, (unsigned long)(vma->base.vm_start + req->offset));
-	if (!pte_none(*vma->pteps[page_offset])) {
-		already_faulted = true;
-	}
-
-	if (!already_faulted) {
-		vmf = (struct vm_fault) {
-			.flags = req->flags,
-			.pgoff = req->pgoff,
-			.virtual_address = (void*)(vma->base.vm_start + req->offset),
-		};
-		PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
-		do {
-			ret = vma->base.vm_ops->fault(&vma->base, &vmf);
-			if (ret & VM_FAULT_ERROR) {
-				BUG();
-			}
-		} while (ret & VM_FAULT_RETRY);
-
-		if (ret & VM_FAULT_NOPAGE) {
-			/* page is installed. */
-		} else if (ret & VM_FAULT_LOCKED) {
-			/* FIXME: should install page. */
-		}
-	}
 
 	max = PVDRM_GEM_FAULT_MAX_PAGES_PER_CALL;
 	max_limited_by_vm_end = ((vma->base.vm_end - vma->base.vm_start) >> PAGE_SHIFT) - page_offset;
@@ -339,14 +314,26 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	for (i = 0; i < max; ++i) {
 		/* Not mappable page? */
 		if (pte_none(*vma->pteps[page_offset + i])) {
-			break;
-		}
-		/* Already mapped in the quest? */
-		if (vma->refs[page_offset + i] > 0) {
-			break;
+			vmf = (struct vm_fault) {
+				.flags = req->flags,
+				.pgoff = req->pgoff,
+				.virtual_address = (void*)(vma->base.vm_start + req->offset),
+			};
+			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
+			do {
+				ret = vma->base.vm_ops->fault(&vma->base, &vmf);
+				if (ret & VM_FAULT_ERROR) {
+					BUG();
+				}
+			} while (ret & VM_FAULT_RETRY);
+
+			if (ret & VM_FAULT_NOPAGE) {
+				/* page is installed. */
+			} else if (ret & VM_FAULT_LOCKED) {
+				/* FIXME: should install page. */
+			}
 		}
 	}
-	max = i;
 
 	if (!is_iomem) {
 		PVDRM_DEBUG("mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
@@ -355,7 +342,12 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		refs = pvdrm_back_slot_addr(info, slot);
 		for (i = 0; i < max; ++i) {
 			int offset = page_offset + i;
-			int ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
+			int ref = 0;
+			if (vma->refs[page_offset + i] > 0) {
+				ref = vma->refs[page_offset + i];
+			} else {
+				ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
+			}
 			PVDRM_DEBUG("to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
 			if (ref < 0) {
 				/* FIXME: bug... */
@@ -413,7 +405,6 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_back_file* 
 		BUG();
 		return -EINVAL;
 	}
-
 
 	return ret;
 }
