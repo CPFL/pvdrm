@@ -135,6 +135,7 @@ int pvdrm_drm_init(struct pvdrm_device* pvdrm, struct drm_device *dev)
 	pvdrm->gem_cache = pvdrm_cache_new(pvdrm);
 	pvdrm->gem_cache_enabled = !!pvdrm_cache;
 	pvdrm->hosts_cache = kmem_cache_create("pvdrm_host_table", sizeof(struct pvdrm_host_table_entry), 0, 0, NULL);
+	PVDRM_INFO("init with cache %d.\n", pvdrm->gem_cache_enabled);
 	return 0;
 }
 

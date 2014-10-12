@@ -113,14 +113,16 @@ void pvdrm_gem_object_close(struct drm_gem_object* gem, struct drm_file* file)
 	struct drm_gem_close req = {
 		.handle = pvdrm_gem_host(drm_file_to_fpriv(file), obj),
 	};
+	int ret;
 	PVDRM_INFO("closing GEM %p count:(%d).\n", obj, pvdrm_gem_refcount(obj));
-	if (obj->cacheable) {
+	if (pvdrm->gem_cache_enabled && obj->cacheable) {
 		pvdrm_cache_insert(pvdrm->gem_cache, file, obj);
 		PVDRM_INFO("Caching GEM %p count:(%d).\n", obj, pvdrm_gem_refcount(obj));
 	}
 	pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 
-	pvdrm_host_table_remove(drm_file_to_fpriv(file)->hosts, obj);
+	ret = pvdrm_host_table_remove(drm_file_to_fpriv(file)->hosts, obj);
+	BUG_ON(ret);
 }
 
 static int register_handle(struct drm_file* file, struct drm_pvdrm_gem_object* obj, uint32_t host, uint32_t* handle)
@@ -135,6 +137,7 @@ static int register_handle(struct drm_file* file, struct drm_pvdrm_gem_object* o
 	}
 
 	ret = pvdrm_host_table_insert(fpriv->hosts, obj, host);
+	BUG_ON(ret);
 
 	return ret;
 }
@@ -210,7 +213,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 	uint32_t handle = 0;
 
 	PVDRM_INFO("Checking req_domain:(%u) size:(%llx) check:(%d)\n", req_domain, req_out->info.size, (int)(mappable && dma));
-	if (mappable && dma) {
+	if (pvdrm->gem_cache_enabled && (mappable && dma)) {
 		obj = pvdrm_cache_fit(pvdrm->gem_cache, req_out->info.size);
 		if (obj) {
 			uint32_t host = 0;
@@ -321,7 +324,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 
 	drm_gem_vm_open(vma);
 
-	if (obj->cacheable && obj->pages) {
+	if (pvdrm->gem_cache_enabled && obj->cacheable && obj->pages) {
 		for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
 			struct page* page = obj->pages[i];
 			if (page) {
@@ -348,7 +351,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 		BUG();
 	}
 
-	if (obj->cacheable) {
+	if (pvdrm->gem_cache_enabled && obj->cacheable) {
 		/* Remap previously resolved pages. */
 		/* FIXME: Page size alignment. */
 		BUG_ON(obj->pages);
@@ -438,7 +441,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			if (ret) {
 				BUG();
 			}
-			if (obj->cacheable && obj->pages) {
+			if (pvdrm->gem_cache_enabled && obj->cacheable && obj->pages) {
 				obj->pages[mapping->i] = pages[i];
 			}
 		}
