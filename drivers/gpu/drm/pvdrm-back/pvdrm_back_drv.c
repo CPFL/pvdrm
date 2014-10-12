@@ -295,7 +295,6 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	struct pvdrm_mapping* refs = NULL;
 	struct drm_pvdrm_gem_fault* req = pvdrm_slot_payload(slot);
 	struct pvdrm_back_vma* vma = NULL;
-	struct vm_fault vmf;
 	bool is_iomem = req->domain & NOUVEAU_GEM_DOMAIN_VRAM;
 
 	vma = pvdrm_back_vma_find(info->global, req->map_handle);
@@ -314,12 +313,12 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	for (i = 0; i < max; ++i) {
 		/* Not mappable page? */
 		if (pte_none(*vma->pteps[page_offset + i])) {
-			vmf = (struct vm_fault) {
+			struct vm_fault vmf = {
 				.flags = req->flags,
-				.pgoff = req->pgoff,
-				.virtual_address = (void*)(vma->base.vm_start + req->offset),
+				.pgoff = req->pgoff + i,
+				.virtual_address = (void*)(vma->base.vm_start + req->offset + i * PAGE_SIZE),
 			};
-			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
+			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset + i);
 			do {
 				ret = vma->base.vm_ops->fault(&vma->base, &vmf);
 				if (ret & VM_FAULT_ERROR) {
@@ -334,9 +333,9 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 			}
 		}
 	}
+	// PVDRM_DEBUG("mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
 
 	if (!is_iomem) {
-		PVDRM_DEBUG("mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
 
 		/* FIXME: This should be removed for optimizations. */
 		refs = pvdrm_back_slot_addr(info, slot);
