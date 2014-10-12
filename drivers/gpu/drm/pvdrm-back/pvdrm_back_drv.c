@@ -316,10 +316,10 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		if (pte_none(*vma->pteps[page_offset + i])) {
 			vmf = (struct vm_fault) {
 				.flags = req->flags,
-				.pgoff = req->pgoff,
-				.virtual_address = (void*)(vma->base.vm_start + req->offset),
+				.pgoff = req->pgoff + i,
+				.virtual_address = (void*)(vma->base.vm_start + req->offset + (i * PAGE_SIZE)),
 			};
-			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset);
+			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset + i);
 			do {
 				ret = vma->base.vm_ops->fault(&vma->base, &vmf);
 				if (ret & VM_FAULT_ERROR) {
