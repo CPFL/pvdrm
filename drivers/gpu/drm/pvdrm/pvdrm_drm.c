@@ -53,6 +53,10 @@
 
 #include "pvdrm_nouveau_abi16.h"
 
+MODULE_PARM_DESC(cache, "Cache the GART memory TTMs in the frontend driver.");
+int pvdrm_cache = 0;
+module_param_named(cache, pvdrm_cache, int, 0400);
+
 static const struct vm_operations_struct pvdrm_gem_vm_ops = {
 	.fault = pvdrm_gem_fault,
 	.open = drm_gem_vm_open,
@@ -129,7 +133,7 @@ int pvdrm_drm_init(struct pvdrm_device* pvdrm, struct drm_device *dev)
 {
 	pvdrm_slots_init(pvdrm);
 	pvdrm->gem_cache = pvdrm_cache_new(pvdrm);
-	pvdrm->gem_cache_enabled = true;
+	pvdrm->gem_cache_enabled = !!pvdrm_cache;
 	pvdrm->hosts_cache = kmem_cache_create("pvdrm_host_table", sizeof(struct pvdrm_host_table_entry), 0, 0, NULL);
 	return 0;
 }
