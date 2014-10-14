@@ -150,14 +150,15 @@ static int drm_xenbus_get_irq(struct drm_device *dev)
 
 static const char *drm_xenbus_get_name(struct drm_device *dev)
 {
-	return dev->xbdev->otherend;
+	return dev->xbdev->nodename;
 }
 
+/* FIXME: Fix this function for xenbus. */
 static int drm_xenbus_set_busid(struct drm_device *dev, struct drm_master *master)
 {
 	int len, ret, id;
 
-	master->unique_len = 13 + strlen(dev->xbdev->otherend);
+	master->unique_len = 13 + strlen(dev->xbdev->nodename);
 	master->unique_size = master->unique_len;
 	master->unique = kmalloc(master->unique_len + 1, GFP_KERNEL);
 
@@ -173,7 +174,7 @@ static int drm_xenbus_set_busid(struct drm_device *dev, struct drm_master *maste
 		id = 0;
 
 	len = snprintf(master->unique, master->unique_len,
-			"Xenbus:%s:%02d", dev->xbdev->otherend, id);
+			"Xenbus:%s:%02d", dev->xbdev->nodename, id);
 
 	if (len > master->unique_len) {
 		DRM_ERROR("Unique buffer overflowed\n");
@@ -182,7 +183,7 @@ static int drm_xenbus_set_busid(struct drm_device *dev, struct drm_master *maste
 	}
 
 	dev->devname =
-		kmalloc(strlen(dev->xbdev->otherend) +
+		kmalloc(strlen(dev->xbdev->nodename) +
 			master->unique_len + 2, GFP_KERNEL);
 
 	if (dev->devname == NULL) {
@@ -190,7 +191,7 @@ static int drm_xenbus_set_busid(struct drm_device *dev, struct drm_master *maste
 		goto err;
 	}
 
-	sprintf(dev->devname, "%s@%s", dev->xbdev->otherend,
+	sprintf(dev->devname, "%s@%s", dev->xbdev->nodename,
 		master->unique);
 	return 0;
 err:
