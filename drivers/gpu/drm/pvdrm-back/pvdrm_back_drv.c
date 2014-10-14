@@ -392,10 +392,10 @@ static int process_mmap(struct pvdrm_back_device* info, struct pvdrm_back_file* 
 	}
 	vma = pvdrm_back_vma_new(info, info->global, obj, req->vm_start, req->vm_end, req->flags, req->map_handle);
 	if (!vma) {
-		drm_gem_object_unreference(obj);
+		drm_gem_object_unreference_unlocked(obj);
 		return -ENOMEM;
 	}
-	drm_gem_object_unreference(obj);
+	drm_gem_object_unreference_unlocked(obj);
 
 	/* Call f_op->mmap operation directly since vm_mmap requires current->mm
 	 * is not NULL.
@@ -550,7 +550,7 @@ static void process_slot(struct work_struct* arg)
 				}
 			}
 
-			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
+			drm_gem_object_unreference_unlocked(obj);  /* Drop the reference from lookup. */
 			ret = drm_gem_handle_delete(file_priv, req->handle);
 		}
 		break;
@@ -568,7 +568,7 @@ static void process_slot(struct work_struct* arg)
 			/* Generate global handle. */
 			ret = drm_gem_handle_create(pvdrm_back_file_to_drm_file(info->global), obj, &req->global);
 
-			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
+			drm_gem_object_unreference_unlocked(obj);  /* Drop the reference from lookup. */
 		}
 		break;
 
@@ -585,7 +585,7 @@ static void process_slot(struct work_struct* arg)
 			/* Adapt global handle. */
 			ret = drm_gem_handle_create(pvdrm_back_file_to_drm_file(file), obj, &req->handle);
 
-			drm_gem_object_unreference(obj);  /* Drop the reference from lookup. */
+			drm_gem_object_unreference_unlocked(obj);  /* Drop the reference from lookup. */
 
 		}
 		break;
