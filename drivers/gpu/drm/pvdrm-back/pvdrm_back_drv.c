@@ -54,6 +54,10 @@
 
 #include "xen_added_interface.h"  /* For domctl. */
 
+MODULE_PARM_DESC(cache, "Sequantially execute the ops submitted from the frontend.");
+int pvdrm_back_sequential = 1;
+module_param_named(sequential, pvdrm_back_sequential, int, 0400);
+
 typedef struct {
 	spinlock_t req_lock;
 } pvdrm_back_core_t;
@@ -678,7 +682,7 @@ static int polling(void *arg)
 			struct pvdrm_back_work* work = pvdrm_back_slot_work(info, slot);
 			work->slot = slot;
 			work->info = info;
-			if (info->sequential) {
+			if (pvdrm_back_sequential) {
 				process_slot(&work->base);
 			} else {
 				INIT_WORK(&work->base, process_slot);
@@ -714,7 +718,6 @@ static int pvdrm_back_probe(struct xenbus_device *xbdev, const struct xenbus_dev
 	if (!info->wq) {
 		BUG();
 	}
-	info->sequential = true;  /* Don't use workqueue for process_slot. false if using workqueue for process_slot. */
 
 	ret = xenbus_switch_state(xbdev, XenbusStateInitWait);
 	if (ret) {
