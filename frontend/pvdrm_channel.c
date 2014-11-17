@@ -24,6 +24,7 @@
 
 #include <drmP.h>
 
+#include <common/pvdrm_idr.h>
 #include <common/pvdrm_log.h>
 #include <common/pvdrm_slot.h>
 
@@ -32,7 +33,6 @@
 #include "pvdrm_channel.h"
 #include "pvdrm_gem.h"
 #include "pvdrm_nouveau_abi16.h"
-
 
 static void pvdrm_channel_release(struct kref* ref)
 {
@@ -63,7 +63,6 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 	struct pvdrm_channel *chan;
 	struct pvdrm_device* pvdrm;
 	int ret = 0;
-	unsigned long flags;
 
 	pvdrm = drm_device_to_pvdrm(dev);
 
@@ -80,11 +79,7 @@ int pvdrm_channel_alloc(struct drm_device* dev, struct drm_file* file, struct dr
 	chan->pvdrm = pvdrm;
 	kref_init(&chan->ref);
 
-	idr_preload(GFP_KERNEL);
-	spin_lock_irqsave(&pvdrm->channels_lock, flags);
-	ret = idr_alloc(&pvdrm->channels_idr, chan, 1, 0, GFP_NOWAIT);
-	spin_unlock_irqrestore(&pvdrm->channels_lock, flags);
-	idr_preload_end();
+	ret = pvdrm_idr_alloc(&pvdrm->channels_idr, &pvdrm->channels_lock, chan, 1);
 	if (ret < 0) {
 		pvdrm_channel_unreference(chan);
 		return ret;

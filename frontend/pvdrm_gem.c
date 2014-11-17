@@ -309,7 +309,12 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	}
 
 	/* FIXME: memory reference. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
+#else
+	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_RESERVED;
+#endif
+
 	vma->vm_ops = dev->driver->gem_vm_ops;
 	vma->vm_private_data = obj;
 	vma->vm_page_prot =  pgprot_writecombine(vm_get_page_prot(vma->vm_flags));

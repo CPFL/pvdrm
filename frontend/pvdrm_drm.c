@@ -25,6 +25,7 @@
 #include <linux/console.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/wait.h>
 
 #include <xen/xen.h>
@@ -74,6 +75,10 @@ static const struct file_operations pvdrm_fops = {
 	.read = drm_read,
 	.llseek = noop_llseek,
 };
+
+#if !defined(DRM_RENDER_ALLOW)
+#define DRM_RENDER_ALLOW 0
+#endif
 
 struct drm_ioctl_desc pvdrm_nouveau_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(NOUVEAU_GETPARAM, pvdrm_nouveau_abi16_ioctl_getparam, DRM_UNLOCKED|DRM_AUTH|DRM_RENDER_ALLOW),
@@ -363,8 +368,13 @@ static int __init pvdrm_init(void)
 	if (!xen_domain())
 		return -ENODEV;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0)
 	if (!xen_has_pv_devices())
 		return -ENODEV;
+#else
+	if (xen_hvm_domain() && !xen_platform_pci_unplug)
+		return -ENODEV;
+#endif
 
 	PVDRM_INFO("Initialising PVDRM driver.\n");
 

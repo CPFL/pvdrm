@@ -25,6 +25,8 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 
+#include <common/pvdrm_idr.h>
+
 #include "pvdrm_back_drv.h"
 
 struct pvdrm_back_file* pvdrm_back_file_lookup(struct pvdrm_back_device* info, int32_t handle)
@@ -54,11 +56,7 @@ struct pvdrm_back_file* pvdrm_back_file_new(struct pvdrm_back_device* info)
 	pvfile->filp = NULL;
 	pvfile->handle = 0;
 
-	idr_preload(GFP_KERNEL);
-	spin_lock(&info->file_lock);
-	ret = idr_alloc(&info->file_idr, pvfile, PVDRM_FILE_GLOBAL_HANDLE + 1, 0, GFP_NOWAIT);
-	spin_unlock(&info->file_lock);
-	idr_preload_end();
+	ret = pvdrm_idr_alloc(&info->file_idr, &info->file_lock, pvfile, PVDRM_FILE_GLOBAL_HANDLE + 1);
 	if (ret < 0) {
 		pvdrm_back_file_destroy(pvfile);
 		return NULL;
