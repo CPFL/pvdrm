@@ -150,7 +150,7 @@ err_free:
 			goto err_g3;
 	}
 
-	list_add_tail(&dev->driver_item, &driver->device_list);
+	/* list_add_tail(&dev->driver_item, &driver->device_list); */
 
 	mutex_unlock(&drm_global_mutex);
 
