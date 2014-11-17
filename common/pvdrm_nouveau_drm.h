@@ -21,27 +21,17 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_CHANNEL_H_
-#define PVDRM_CHANNEL_H_
+#ifndef PVDRM_NOUVEAU_DRM_H_
+#define PVDRM_NOUVEAU_DRM_H_
 
-#include <drmP.h>
-#include <common/pvdrm_nouveau_drm.h>
+#include <linux/version.h>
 
-#include "pvdrm_gem.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#include <uapi/drm/drm.h>
+#include <uapi/drm/nouveau_drm.h>
+#else
+#include <drm/drm.h>
+#include <drm/nouveau_drm.h>
+#endif
 
-struct drm_nouveau_channel_alloc;
-
-struct pvdrm_channel {
-	struct kref ref;
-	uint32_t channel;
-	uint32_t host;
-	struct pvdrm_device* pvdrm;
-};
-
-int pvdrm_channel_alloc(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_alloc *req_out, struct pvdrm_channel** result);
-int pvdrm_channel_free(struct drm_device *dev, struct drm_file *file, struct drm_nouveau_channel_free *req_out);
-struct pvdrm_channel* pvdrm_channel_lookup(struct drm_device *dev, uint32_t id);
-void pvdrm_channel_reference(struct pvdrm_channel* chan);
-void pvdrm_channel_unreference(struct pvdrm_channel* chan);
-
-#endif  /* PVDRM_CHANNEL_H_ */
+#endif  /* PVDRM_NOUVEAU_DRM_H_ */

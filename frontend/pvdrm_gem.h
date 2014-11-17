@@ -25,7 +25,7 @@
 #define PVDRM_GEM_H_
 
 #include <drmP.h>
-#include <uapi/drm/nouveau_drm.h>
+#include <common/pvdrm_nouveau_drm.h>
 
 struct pvdrm_fpriv;
 

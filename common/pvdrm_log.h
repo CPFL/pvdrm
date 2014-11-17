@@ -46,7 +46,7 @@
  */
 #ifndef PVDRM_LOG_H_
 #define PVDRM_LOG_H_
-#include <uapi/drm/drm.h>
+#include "pvdrm_nouveau_drm.h"
 #include "pvdrm_utils.h"
 
 /* Use nouveau's logging macros. */
