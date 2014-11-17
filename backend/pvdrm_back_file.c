@@ -80,7 +80,7 @@ struct pvdrm_back_file* pvdrm_back_file_open_if_necessary(struct pvdrm_back_devi
 		set_fs(get_ds());
 		/* FIXME: Currently we use this path directly. We need to implement
 		 * discovery functionality.*/
-		filp = filp_open("/dev/dri/renderD128", O_RDWR, 0);
+		filp = filp_open("/dev/dri/card0", O_RDWR, 0);
 		set_fs(fs);
 		PVDRM_INFO("Opened drm device.\n");
 		file->filp = filp;
