@@ -639,6 +639,10 @@ static int polling(void *arg)
 		}
 		PVDRM_DEBUG("mapping %u.\n", info->ref);
 
+		info->device_path = xenbus_read(XBT_NIL, info->xbdev->nodename, "device-path", NULL);
+		BUG_ON(!info->device_path);
+		PVDRM_DEBUG("device-path %s.\n", info->device_path);
+
 		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
 		if (ret) {
 			xenbus_dev_fatal(info->xbdev, ret, "mapping counter-ref");

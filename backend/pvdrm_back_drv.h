@@ -67,6 +67,7 @@ struct pvdrm_back_device {
 	bool sequential;
 	struct idr file_idr;
 	spinlock_t file_lock;
+	const char* device_path;  /* Should be kfreed. */
 	struct pvdrm_back_file* global;
 };
 
