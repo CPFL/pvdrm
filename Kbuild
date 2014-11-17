@@ -1,4 +1,4 @@
-EXTRA_CFLAGS := \
+ccflags-y := \
     -Iinclude/drm \
     -I$(src)
 
