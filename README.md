@@ -12,3 +12,38 @@ By leveraging DRM APIs (including GEM object APIs), PVDRM enables multiplexing a
 
 Currently, it only supports nouveau driver for NVIDIA GPUs.
 We tested PVDRM on 3.6.5 and 3.17.2 Linux kernels.
+
+## Build Instruction
+
+To build the PVDRM kernel modules, simply hit the `make` command.
+Linux kernel headers need to be installed to build kernel modules.
+```sh
+make
+```
+
+And install it by
+```sh
+make install
+```
+
+Now, `pvdrm-front` and `pvdrm-back` drivers are installed.
+
+## Using PVDRM
+
+On the domain 0 side, you need to run `nouveau` driver for NVIDIA GPUs.
+And after that, `modprobe pvdrm-back` will load `pvdrm-back` back-end driver in the domain 0.
+
+After launching the domain U VM, `modprobe pvdrm-front` will load `pvdrm-front` front-end driver.
+And executing `./vdrm <device-path> <domain-U>` will connect vdrm devices to the specified domain U.
+For example, `./vdrm /dev/dri/card0 1` will create the virtual devices on Xen bus and it will be probed by `pvdrm-back` and `pvdrm-front`.
+
+## Options
+
+### back-end driver
+
+`pvdrm-back` supports `sequential` option. When it is specified, `pvdrm-back` will execute DRM API requests sequentially
+
+### front-end driver
+
+`pvdrm-front` supports `cache` option. When it is specified, `pvdrm-front` will pool allocated GEM object in the front-end driver.
+It will reduce hypercall frequency and improve the performance.
