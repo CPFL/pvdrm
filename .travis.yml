@@ -1,0 +1,21 @@
+language: c
+
+os:
+	- linux
+
+before_install:
+	- export JOBS=2
+	- sudo apt-get update -qq;
+
+install:
+
+before_script:
+
+script:
+
+notifications:
+    email:
+        recipients:
+            - yusuke.suzuki@sslab.ics.keio.ac.jp
+        on_success: change
+        on_failure: always
