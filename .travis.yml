@@ -3,15 +3,22 @@ language: c
 os:
         - linux
 
+env:
+    - KERNEL_VERSION=3.6.11
+    - KERNEL_VERSION=3.17.3
+
 before_install:
-        - export JOBS=2
         - sudo apt-get update -qq;
 
 install:
+        - sudo apt-get install -y wget
+        - ruby tools/ci.kernel.rb $KERNEL_VERSION
 
 before_script:
+        - export KDIR=$(cat KDIR)
 
 script:
+        - make KDIR=$KDIR
 
 notifications:
     email:
