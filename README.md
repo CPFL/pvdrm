@@ -1,6 +1,8 @@
 # PVDRM
 PVDRM: Para-Virtualization leveraging DRM as a PV boundary.
 
+[![Build Status](https://magnum.travis-ci.com/CPFL/pvdrm.svg?token=NfefyoR2J5KLwyG5o6Lh&branch=master)](https://magnum.travis-ci.com/CPFL/pvdrm)
+
 PVDRM (Para-Virtualized DRM) is the para-virtualization approach for GPGPU computing.
 It takes a conventional Xen splitted driver model;
 it provides front-end(`pvdrm-front`) and back-end drivers (`pvdrm-back`).

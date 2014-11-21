@@ -5,6 +5,7 @@ os:
 
 env:
     - KERNEL_VERSION=3.6.11
+    - KERNEL_VERSION=3.16.7
     - KERNEL_VERSION=3.17.3
 
 before_install:
