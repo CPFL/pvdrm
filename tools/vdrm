@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: ./vdrm.sh /dev/dri/card0 1
+# usage: tools/vdrm.sh /dev/dri/card0 1
 if [ $# != 2 ]
 then
         echo "Usage: $0 <device-path> <frontend-id>"

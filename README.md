@@ -34,8 +34,8 @@ On the domain 0 side, you need to run `nouveau` driver for NVIDIA GPUs.
 And after that, `modprobe pvdrm-back` will load `pvdrm-back` back-end driver in the domain 0.
 
 After launching the domain U VM, `modprobe pvdrm-front` will load `pvdrm-front` front-end driver.
-And executing `./vdrm <device-path> <domain-U>` will connect vdrm devices to the specified domain U.
-For example, `./vdrm /dev/dri/card0 1` will create the virtual devices on Xen bus and it will be probed by `pvdrm-back` and `pvdrm-front`.
+And executing `tools/vdrm <device-path> <domain-U>` will connect vdrm devices to the specified domain U.
+For example, `tools/vdrm /dev/dri/card0 1` will create the virtual devices on Xen bus and it will be probed by `pvdrm-back` and `pvdrm-front`.
 
 ## Options
 
