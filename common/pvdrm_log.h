@@ -53,7 +53,7 @@
 #define PVDRM_PRINTK(level, fmt, arg...) \
 	printk(level "[" DRM_NAME "] pvdrm: " fmt, ##arg)
 
-#define PVDRM_DEBUG_LOG 1
+#define PVDRM_DEBUG_LOG 0
 
 #define PVDRM_DEBUG(fmt, arg...) \
 	do { \
