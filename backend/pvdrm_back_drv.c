@@ -671,18 +671,7 @@ static int polling(void *arg)
 	PVDRM_INFO("Start main loop.\n");
 
 	while (true) {
-		int once = PVDRM_POLLING_COUNT;
-		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
-			if (once-- < 0) {
-				/* Sleep. */
-				ktime_t time;
-				__set_current_state(TASK_INTERRUPTIBLE);
-				time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
-				schedule_hrtimeout(&time, HRTIMER_MODE_REL);
-				once = PVDRM_POLLING_COUNT;
-			}
-		}
-
+		PVDRM_WAIT(kthread_should_stop() || pvdrm_back_count(info));
 		if (kthread_should_stop()) {
 			PVDRM_INFO("Thread should stop.\n");
 			break;

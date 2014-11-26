@@ -21,7 +21,29 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_CONFIG_H_
-#define PVDRM_CONFIG_H_
 
-#endif  /* PVDRM_CONFIG_H_ */
+#ifndef PVDRM_WAIT_H_
+#define PVDRM_WAIT_H_
+
+#define PVDRM_POLL_COUNT 100000
+#define PVDRM_POLL(condition) \
+	for (; ({\
+		int __pvdrm_poll_counter__; \
+		for (__pvdrm_poll_counter__ = PVDRM_POLL_COUNT; __pvdrm_poll_counter__ >= 0 && !(condition); __pvdrm_poll_counter__--); \
+		1; \
+		});)
+
+#define PVDRM_WAIT(condition) \
+	do {\
+		PVDRM_POLL(condition) { \
+			/* Sleep. */ \
+			ktime_t time; \
+			__set_current_state(TASK_KILLABLE); \
+			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */ \
+			schedule_hrtimeout(&time, HRTIMER_MODE_REL); \
+		}\
+		__set_current_state(TASK_RUNNING);\
+	} while (0)
+
+
+#endif  /* PVDRM_WAIT_H_ */

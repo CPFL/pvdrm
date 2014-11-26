@@ -30,7 +30,7 @@
 #include <linux/time.h>
 #include <linux/types.h>
 
-#include "pvdrm_config.h"
+#include "pvdrm_wait.h"
 #include "pvdrm_limits.h"
 
 struct pvdrm_device;
@@ -57,7 +57,7 @@ static inline uint32_t pvdrm_fence_read(struct pvdrm_fence* fence)
 static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected, bool interruptible)
 {
 	int ret = 0;
-	int once = PVDRM_POLLING_COUNT;
+	int once = PVDRM_POLL_COUNT;
 
 	wmb();
 	while (pvdrm_fence_read(fence) != expected) {
@@ -71,7 +71,7 @@ static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected,
 				ret = -ERESTARTSYS;
 				break;
 			}
-			once = PVDRM_POLLING_COUNT;
+			once = PVDRM_POLL_COUNT;
 		}
 	}
 
