@@ -50,8 +50,12 @@
 #include "pvdrm_utils.h"
 
 /* Use nouveau's logging macros. */
-#define PVDRM_PRINTK(level, fmt, arg...) \
-	printk(level "[" DRM_NAME "] pvdrm: " fmt, ##arg)
+#if 0
+	#define PVDRM_PRINTK(level, fmt, arg...) \
+		printk(level "[" DRM_NAME "] pvdrm: " fmt, ##arg)
+#else
+	#define PVDRM_PRINTK(level, fmt, arg...) do { } while (0)
+#endif
 
 #define PVDRM_DEBUG_LOG 0
 
