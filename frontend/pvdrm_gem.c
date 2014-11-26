@@ -38,6 +38,7 @@
 #include <drm_crtc_helper.h>
 
 #include <common/pvdrm_bench.h>
+#include <common/pvdrm_ignore_unused_variable_warning.h>
 #include <common/pvdrm_log.h>
 #include <common/pvdrm_slot.h>
 
@@ -101,6 +102,7 @@ int pvdrm_gem_object_open(struct drm_gem_object* gem, struct drm_file* file)
 {
 	struct drm_pvdrm_gem_object *obj = to_pvdrm_gem_object(gem);
 	/* pvdrm_host_table_insert(drm_file_to_fpriv(file)->hosts, gem); */
+	PVDRM_IGNORE_UNUSED_VARIABLE_WARNING(obj);
 	PVDRM_INFO("opening GEM %p count:(%d).\n", obj, pvdrm_gem_refcount(obj));
 	return 0;
 }
@@ -198,13 +200,14 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 {
 	struct drm_pvdrm_gem_object* obj = NULL;
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
-	int ret;
+	int ret = 0;
 	const unsigned req_domain = req_out->info.domain;
 	const bool mappable = req_out->info.domain & NOUVEAU_GEM_DOMAIN_MAPPABLE;
 	const bool dma = req_out->info.domain & NOUVEAU_GEM_DOMAIN_GART;
 	uint32_t handle = 0;
 
 	PVDRM_INFO("Checking req_domain:(%u) size:(%llx) check:(%d)\n", req_domain, req_out->info.size, (int)(mappable && dma));
+	PVDRM_IGNORE_UNUSED_VARIABLE_WARNING(req_domain);
 	if (pvdrm->gem_cache_enabled && (mappable && dma)) {
 		obj = pvdrm_cache_fit(pvdrm->gem_cache, req_out->info.size);
 		if (obj) {
@@ -259,7 +262,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 struct drm_pvdrm_gem_object* pvdrm_gem_object_lookup(struct drm_device *dev, struct drm_file *file, uint32_t handle)

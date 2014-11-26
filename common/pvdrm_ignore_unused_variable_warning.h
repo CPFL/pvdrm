@@ -21,41 +21,10 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_BENCH_H_
-#define PVDRM_BENCH_H_
-#include <linux/time.h>
-#include "pvdrm_ignore_unused_variable_warning.h"
-#include "pvdrm_log.h"
 
-struct pvdrm_bench {
-	struct timespec elapsed;
-	bool opened;
-};
+#ifndef PVDRM_IGNORE_UNUSED_VARIABLE_WARNING_H_
+#define PVDRM_IGNORE_UNUSED_VARIABLE_WARNING_H_
 
-static inline void pvdrm_bench_open(struct pvdrm_bench* bench)
-{
-	bench->opened = true;
-	bench->elapsed = CURRENT_TIME;
-}
+#define PVDRM_IGNORE_UNUSED_VARIABLE_WARNING(x) (void)(x)
 
-static inline void pvdrm_bench_close(struct pvdrm_bench* bench, const char* name)
-{
-	const struct timespec finish = CURRENT_TIME;
-	const struct timespec elapsed = timespec_sub(finish, bench->elapsed);
-	bench->elapsed = elapsed;
-	bench->opened = false;
-	if (name) {
-		const long long unsigned ms = bench->elapsed.tv_sec * 1000ULL + (bench->elapsed.tv_nsec / 1000000ULL);
-		const long long unsigned us = bench->elapsed.tv_sec * 1000000ULL + (bench->elapsed.tv_nsec / 1000ULL);
-		PVDRM_IGNORE_UNUSED_VARIABLE_WARNING(ms);
-		PVDRM_IGNORE_UNUSED_VARIABLE_WARNING(us);
-		PVDRM_INFO("[%s] elapsed time: ms:(%llu), us:(%llu)\n", name, ms, us);
-	}
-}
-
-#define PVDRM_BENCH_WITH_NAME(bench, name) \
-	for (pvdrm_bench_open(bench); (bench)->opened; pvdrm_bench_close(bench, name))
-
-#define PVDRM_BENCH(bench) PVDRM_BENCH_WITH_NAME(bench, __func__)
-
-#endif  /* PVDRM_BENCH_H_ */
+#endif  /* PVDRM_IGNORE_UNUSED_VARIABLE_WARNING_H_ */
