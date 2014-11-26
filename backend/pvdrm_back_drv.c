@@ -677,8 +677,7 @@ static int polling(void *arg)
 				/* Sleep. */
 				ktime_t time;
 				__set_current_state(TASK_INTERRUPTIBLE);
-				// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
-				time = ktime_set(0, 20);
+				time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
 				schedule_hrtimeout(&time, HRTIMER_MODE_REL);
 				once = PVDRM_POLLING_COUNT;
 			}

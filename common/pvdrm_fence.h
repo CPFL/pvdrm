@@ -56,7 +56,6 @@ static inline uint32_t pvdrm_fence_read(struct pvdrm_fence* fence)
 
 static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected, bool interruptible)
 {
-	unsigned long sleep_time = NSEC_PER_MSEC / 1000;
 	int ret = 0;
 	int once = PVDRM_POLLING_COUNT;
 
@@ -66,13 +65,8 @@ static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected,
 			ktime_t time;
 			__set_current_state(interruptible ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE);
 
-			time = ktime_set(0, sleep_time);
+			time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
 			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
-			sleep_time *= 2;
-			if (sleep_time > NSEC_PER_MSEC) {
-				sleep_time = NSEC_PER_MSEC;
-			}
-
 			if (interruptible && signal_pending(current)) {
 				ret = -ERESTARTSYS;
 				break;
