@@ -50,6 +50,7 @@
 
 #include <drmP.h>
 
+#include <common/pvdrm_config.h>
 #include "pvdrm_back_drv.h"
 
 #include "xen_added_interface.h"  /* For domctl. */
@@ -670,7 +671,7 @@ static int polling(void *arg)
 	PVDRM_INFO("Start main loop.\n");
 
 	while (true) {
-		int once = 100000;
+		int once = PVDRM_POLLING_COUNT;
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
 			if (once-- < 0) {
 				/* Sleep. */
@@ -679,7 +680,7 @@ static int polling(void *arg)
 				// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
 				time = ktime_set(0, 20);
 				schedule_hrtimeout(&time, HRTIMER_MODE_REL);
-				once = 100000;
+				once = PVDRM_POLLING_COUNT;
 			}
 		}
 

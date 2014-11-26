@@ -21,68 +21,9 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#ifndef PVDRM_FENCE_H_
-#define PVDRM_FENCE_H_
+#ifndef PVDRM_CONFIG_H_
+#define PVDRM_CONFIG_H_
 
-#include <linux/atomic.h>
-#include <linux/ktime.h>
-#include <linux/sched.h>
-#include <linux/time.h>
-#include <linux/types.h>
+#define PVDRM_POLLING_COUNT 100000
 
-#include "pvdrm_config.h"
-#include "pvdrm_limits.h"
-
-struct pvdrm_device;
-
-enum {
-	PVDRM_FENCE_DONE = UINT32_MAX
-};
-
-struct pvdrm_fence {
-	atomic_t seq;
-};
-
-static inline void pvdrm_fence_emit(struct pvdrm_fence* fence, uint32_t seq)
-{
-	wmb();
-	atomic_set(&fence->seq, seq);
-}
-
-static inline uint32_t pvdrm_fence_read(struct pvdrm_fence* fence)
-{
-	return atomic_read(&fence->seq);
-}
-
-static inline int pvdrm_fence_wait(struct pvdrm_fence* fence, uint32_t expected, bool interruptible)
-{
-	unsigned long sleep_time = NSEC_PER_MSEC / 1000;
-	int ret = 0;
-	int once = PVDRM_POLLING_COUNT;
-
-	wmb();
-	while (pvdrm_fence_read(fence) != expected) {
-		if (once-- < 0) {
-			ktime_t time;
-			__set_current_state(interruptible ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE);
-
-			time = ktime_set(0, sleep_time);
-			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
-			sleep_time *= 2;
-			if (sleep_time > NSEC_PER_MSEC) {
-				sleep_time = NSEC_PER_MSEC;
-			}
-
-			if (interruptible && signal_pending(current)) {
-				ret = -ERESTARTSYS;
-				break;
-			}
-			once = PVDRM_POLLING_COUNT;
-		}
-	}
-
-	__set_current_state(TASK_RUNNING);
-	return ret;
-}
-
-#endif  /* PVDRM_FENCE_H_ */
+#endif  /* PVDRM_CONFIG_H_ */
