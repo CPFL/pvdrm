@@ -670,13 +670,17 @@ static int polling(void *arg)
 	PVDRM_INFO("Start main loop.\n");
 
 	while (true) {
+		int once = 100000;
 		while (!kthread_should_stop() && !pvdrm_back_count(info)) {
-			/* Sleep. */
-			ktime_t time;
-			__set_current_state(TASK_INTERRUPTIBLE);
-			// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
-			time = ktime_set(0, 20);  /* This value derived from Paradice [ASPLOS '14]. */
-			schedule_hrtimeout(&time, HRTIMER_MODE_REL);
+			if (once-- < 0) {
+				/* Sleep. */
+				ktime_t time;
+				__set_current_state(TASK_INTERRUPTIBLE);
+				// time = ktime_set(0, 200);  /* This value derived from Paradice [ASPLOS '14]. */
+				time = ktime_set(0, 20);
+				schedule_hrtimeout(&time, HRTIMER_MODE_REL);
+				once = 100000;
+			}
 		}
 
 		if (kthread_should_stop()) {
