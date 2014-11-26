@@ -24,4 +24,6 @@
 #ifndef PVDRM_CONFIG_H_
 #define PVDRM_CONFIG_H_
 
+#define PVDRM_POLLING_COUNT 100000
+
 #endif  /* PVDRM_CONFIG_H_ */
