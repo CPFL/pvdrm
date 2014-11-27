@@ -67,22 +67,8 @@ int pvdrm_gem_object_init(struct drm_gem_object *obj)
 	return 0;
 }
 
-void pvdrm_gem_object_free(struct drm_gem_object *gem)
+static void pvdrm_gem_object_free_grant_refs(struct drm_pvdrm_gem_object* obj)
 {
-	struct drm_pvdrm_gem_object* obj = to_pvdrm_gem_object(gem);
-	struct drm_device* dev = obj->base.dev;
-	struct pvdrm_device* pvdrm = NULL;
-
-	PVDRM_INFO("freeing GEM %lx.\n", (unsigned long)obj);
-	pvdrm = drm_device_to_pvdrm(dev);
-
-	/* FIXME: mmap list should be freed. */
-	if (obj->backing) {
-		/* FIXME: Free iomem mapped area asynchronously. */
-		/* free_pages(obj->backing, get_order(obj->base.size)); */
-		obj->backing = 0;
-	}
-
 	if (obj->pages) {
 		int i;
 		int ret = 0;
@@ -107,6 +93,23 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		obj->pages = NULL;
 		kfree(obj->handles);
 		obj->handles = NULL;
+	}
+}
+
+void pvdrm_gem_object_free(struct drm_gem_object *gem)
+{
+	struct drm_pvdrm_gem_object* obj = to_pvdrm_gem_object(gem);
+	struct drm_device* dev = obj->base.dev;
+	struct pvdrm_device* pvdrm = NULL;
+
+	PVDRM_INFO("freeing GEM %lx.\n", (unsigned long)obj);
+	pvdrm = drm_device_to_pvdrm(dev);
+
+	/* FIXME: mmap list should be freed. */
+	if (obj->backing) {
+		/* FIXME: Free iomem mapped area asynchronously. */
+		/* free_pages(obj->backing, get_order(obj->base.size)); */
+		obj->backing = 0;
 	}
 
 	drm_gem_object_release(&obj->base);
@@ -142,6 +145,12 @@ void pvdrm_gem_object_close(struct drm_gem_object* gem, struct drm_file* file)
 		pvdrm_cache_insert(pvdrm->gem_cache, file, obj);
 		PVDRM_INFO("Caching GEM %p count:(%d).\n", obj, pvdrm_gem_refcount(obj));
 	}
+
+	/* FIXME: It's not good solution. */
+	if (atomic_read(&obj->base.refcount.refcount) == 1  /* Last reference. After this closing call, it will be freed. */) {
+		pvdrm_gem_object_free_grant_refs(obj);
+	}
+
 	pvdrm_nouveau_abi16_ioctl(file, PVDRM_GEM_NOUVEAU_GEM_CLOSE, &req, sizeof(struct drm_gem_close));
 
 	ret = pvdrm_host_table_remove(drm_file_to_fpriv(file)->hosts, obj);

@@ -67,8 +67,7 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 		int ref = vma->refs[i];
 		if (ref > 0) {
 			/* FIXME: free on guest. */
-			// gnttab_end_foreign_access_ref(ref, 0);
-			// gnttab_free_grant_reference(ref);
+			gnttab_end_foreign_access(ref, 0, 0);
 		}
 	}
 

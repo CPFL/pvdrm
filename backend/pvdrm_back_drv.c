@@ -351,7 +351,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 			} else {
 				ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
 			}
-			PVDRM_DEBUG("to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
+			PVDRM_INFO("to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
 			if (ref < 0) {
 				/* FIXME: bug... */
 				xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
