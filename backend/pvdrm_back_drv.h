@@ -71,6 +71,11 @@ struct pvdrm_back_device {
 	struct pvdrm_back_file* global;
 };
 
+struct pvdrm_back_backing_mapping {
+	unsigned gfn;
+	unsigned mfn;
+};
+
 struct pvdrm_back_vma {
 	struct vm_area_struct base;
 	struct list_head head;
@@ -80,6 +85,7 @@ struct pvdrm_back_vma {
 	uint64_t map_handle;
 	uint32_t pages;
 	struct drm_gem_object* obj;
+	struct pvdrm_back_backing_mapping* backing;
 };
 
 struct pvdrm_back_vma* pvdrm_back_vma_find(struct pvdrm_back_file* file, uint64_t map_handle);
@@ -96,5 +102,7 @@ static inline struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back
 {
 	return pvdrm_back_file_to_drm_file(file)->minor->dev;
 }
+
+int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping);
 
 #endif  /* PVDRM_BACK_DRV_H_ */

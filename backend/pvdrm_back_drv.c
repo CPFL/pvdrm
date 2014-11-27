@@ -264,7 +264,7 @@ destroy_data:
 	return ret;
 }
 
-static int memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping)
+int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping)
 {
 	struct xen_domctl domctl = { 0 };
 
@@ -367,8 +367,15 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		req->mapped_count = result;
 	} else {
 		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
-		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)req->backing, (unsigned)max);
-		ret = memory_mapping(info, req->backing, mfn, max, true);
+		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)req->backing + page_offset, (unsigned)max);
+		ret = pvdrm_back_memory_mapping(info, req->backing + page_offset, mfn, max, true);
+		for (i = 0; i < max; ++i) {
+			vma->backing[page_offset + i] = (struct pvdrm_back_backing_mapping) {
+				.gfn = req->backing + page_offset + i,
+				.mfn = mfn + i
+			};
+		}
+		BUG_ON(ret < 0);
 		req->mapped_count = max;
 	}
 	return ret;
@@ -551,7 +558,8 @@ static void process_slot(struct work_struct* arg)
 			}
 
 			/* FIXME: It's not good solution. */
-			if (atomic_read(&obj->refcount.refcount) == 2  /* lookup reference & handle reference, there's no global reference. */) {
+			/* Lookup reference & handle reference, there's no global reference. */
+			if (atomic_read(&obj->refcount.refcount) == 2) {
 				struct pvdrm_back_vma* vma = NULL;
 				vma = pvdrm_back_vma_find_with_gem_object(info->global, obj);
 				if (vma) {

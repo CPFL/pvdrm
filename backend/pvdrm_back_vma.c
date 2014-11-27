@@ -63,12 +63,27 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 	}
 
 	PVDRM_INFO("Freeing grant refs\n");
-	for (i = 0; i < vma->pages; ++i) {
-		int ref = vma->refs[i];
-		if (ref > 0) {
-			/* FIXME: free on guest. */
-			gnttab_end_foreign_access(ref, 0, 0);
+	if (vma->refs) {
+		for (i = 0; i < vma->pages; ++i) {
+			int ref = vma->refs[i];
+			if (ref > 0) {
+				/* FIXME: free on guest. */
+				gnttab_end_foreign_access(ref, 0, 0);
+			}
 		}
+		kfree(vma->refs);
+	}
+
+	/* iomem case. */
+	if (vma->backing) {
+		for (i = 0; i < vma->pages; ++i) {
+			struct pvdrm_back_backing_mapping* mapping = &vma->backing[i];
+			if (mapping->gfn && mapping->mfn) {
+				int ret = pvdrm_back_memory_mapping(file->info, mapping->gfn, mapping->mfn, 1, false);
+				BUG_ON(ret < 0);
+			}
+		}
+		kfree(vma->backing);
 	}
 
 	if (vma->area) {
@@ -79,9 +94,6 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 		kfree(vma->pteps);
 	}
 
-	if (vma->refs) {
-		kfree(vma->refs);
-	}
 
 	{
 		struct pvdrm_back_vma* pos;
@@ -122,6 +134,11 @@ struct pvdrm_back_vma* pvdrm_back_vma_new(struct pvdrm_back_device* info, struct
 
 	vma->refs = kzalloc(sizeof(int) * (pages + 1), GFP_KERNEL);
 	if (!vma->refs) {
+		BUG();
+	}
+
+	vma->backing = kzalloc(sizeof(struct pvdrm_back_backing_mapping) * (pages + 1), GFP_KERNEL);
+	if (!vma->backing) {
 		BUG();
 	}
 

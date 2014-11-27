@@ -108,7 +108,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	/* FIXME: mmap list should be freed. */
 	if (obj->backing) {
 		/* FIXME: Free iomem mapped area asynchronously. */
-		/* free_pages(obj->backing, get_order(obj->base.size)); */
+		free_pages(obj->backing, get_order(obj->base.size));
 		obj->backing = 0;
 	}
 
@@ -148,7 +148,8 @@ void pvdrm_gem_object_close(struct drm_gem_object* gem, struct drm_file* file)
 	}
 
 	/* FIXME: It's not good solution. */
-	if (atomic_read(&obj->base.refcount.refcount) == 1  /* Last reference. After this closing call, it will be freed. */) {
+	if (atomic_read(&obj->base.refcount.refcount) == 1) {
+		/* Last reference. After this closing call, it will be freed. */
 		pvdrm_gem_object_free_grant_refs(obj);
 	}
 
@@ -407,7 +408,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	if (is_iomem) {
 		BUG_ON(!obj->backing);
-		backing = virt_to_pfn(obj->backing) + (offset >> PAGE_SHIFT);
+		backing = virt_to_pfn(obj->backing);
 	}
 
 	req = (struct drm_pvdrm_gem_fault) {
@@ -480,8 +481,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	} else {
 		/* FIXME: Xen now put errors. */
 		for (i = 0; i < req.mapped_count; ++i) {
-			PVDRM_DEBUG("mapping pages page[%d]:(%lx)== pfn:(0x%lx)\n", i, (unsigned long)(vma->vm_start + offset + (PAGE_SIZE * i)), (unsigned long)(backing + i));
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + i);
+			PVDRM_DEBUG("mapping pages page[%d]:(%lx)== pfn:(0x%lx)\n", i, (unsigned long)(vma->vm_start + offset + (PAGE_SIZE * i)), (unsigned long)(backing + (offset >> PAGE_SHIFT) + i));
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + (offset >> PAGE_SHIFT) + i);
 			if (ret && ret != -EBUSY) {
 				BUG();
 			}
