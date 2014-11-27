@@ -368,7 +368,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	} else {
 		unsigned long first_mfn = 0;
 		unsigned long count = 0;
-		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max);
+		/* PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max); */
 		for (i = 0; i < max; ++i) {
 			int offset = page_offset + i;
 			unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset]))));
