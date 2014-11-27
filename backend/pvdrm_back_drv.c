@@ -367,7 +367,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		req->mapped_count = result;
 	} else {
 		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
-		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)req->backing + page_offset, (unsigned)max);
+		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max);
 		ret = pvdrm_back_memory_mapping(info, req->backing + page_offset, mfn, max, true);
 		for (i = 0; i < max; ++i) {
 			vma->backing[page_offset + i] = (struct pvdrm_back_backing_mapping) {
