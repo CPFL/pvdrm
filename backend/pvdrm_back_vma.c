@@ -79,7 +79,9 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 		for (i = 0; i < vma->pages; ++i) {
 			struct pvdrm_back_backing_mapping* mapping = &vma->backing[i];
 			if (mapping->gfn && mapping->mfn) {
-				int ret = pvdrm_back_memory_mapping(file->info, mapping->gfn, mapping->mfn, 1, false);
+				int ret;
+				PVDRM_INFO("Freeing IOMEM gfn:(%x) mfn:(%x).\n", mapping->gfn, mapping->mfn);
+				ret = pvdrm_back_memory_mapping(file->info, mapping->gfn, mapping->mfn, 1, false);
 				BUG_ON(ret < 0);
 			}
 		}
