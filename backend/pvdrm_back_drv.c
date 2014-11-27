@@ -551,7 +551,7 @@ static void process_slot(struct work_struct* arg)
 			}
 
 			/* FIXME: It's not good solution. */
-			if (atomic_read(&obj->refcount.refcount) == 2  /* lookup reference & VMA reference. */) {
+			if (atomic_read(&obj->refcount.refcount) == 2  /* lookup reference & handle reference, there's no global reference. */) {
 				struct pvdrm_back_vma* vma = NULL;
 				vma = pvdrm_back_vma_find_with_gem_object(info->global, obj);
 				if (vma) {
