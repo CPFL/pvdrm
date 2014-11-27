@@ -366,16 +366,36 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		}
 		req->mapped_count = result;
 	} else {
-		unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[page_offset]))));
+		unsigned long first_mfn = 0;
+		unsigned long count = 0;
 		PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max);
-		ret = pvdrm_back_memory_mapping(info, req->backing + page_offset, mfn, max, true);
 		for (i = 0; i < max; ++i) {
-			vma->backing[page_offset + i] = (struct pvdrm_back_backing_mapping) {
-				.gfn = req->backing + page_offset + i,
-				.mfn = mfn + i
+			int offset = page_offset + i;
+			unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset]))));
+			if (!first_mfn) {
+				first_mfn = mfn;
+				count = 1;
+			} else {
+				if ((first_mfn + count) == mfn) {
+					// Continuous.
+					count += 1;
+				} else {
+					// Not continuous.
+					ret = pvdrm_back_memory_mapping(info, req->backing + offset - count, first_mfn, count, true);
+					BUG_ON(ret < 0);
+					first_mfn = mfn;
+					count = 1;
+				}
+			}
+			vma->backing[offset] = (struct pvdrm_back_backing_mapping) {
+				.gfn = req->backing + offset,
+				.mfn = mfn
 			};
 		}
-		BUG_ON(ret < 0);
+		if (first_mfn) {
+			ret = pvdrm_back_memory_mapping(info, req->backing + (page_offset + max) - count, first_mfn, count, true);
+			BUG_ON(ret < 0);
+		}
 		req->mapped_count = max;
 	}
 	return ret;

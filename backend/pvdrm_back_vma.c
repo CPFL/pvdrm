@@ -76,14 +76,43 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 
 	/* iomem case. */
 	if (vma->backing) {
+		unsigned long first_mfn = 0;
+		unsigned long first_gfn = 0;
+		unsigned long count = 0;
 		for (i = 0; i < vma->pages; ++i) {
 			struct pvdrm_back_backing_mapping* mapping = &vma->backing[i];
 			if (mapping->gfn && mapping->mfn) {
-				int ret;
-				PVDRM_INFO("Freeing IOMEM gfn:(%x) mfn:(%x).\n", mapping->gfn, mapping->mfn);
-				ret = pvdrm_back_memory_mapping(file->info, mapping->gfn, mapping->mfn, 1, false);
-				BUG_ON(ret < 0);
+				if (!first_mfn) {
+					first_mfn = mapping->mfn;
+					first_gfn = mapping->gfn;
+					count = 1;
+				} else {
+					if ((first_mfn + count) == mapping->mfn) {
+						count += 1;
+					} else {
+						int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
+						PVDRM_INFO("Freeing IOMEM gfn:(%x) mfn:(%x).\n", first_gfn, first_mfn);
+						BUG_ON(ret < 0);
+						first_mfn = mapping->mfn;
+						first_gfn = mapping->gfn;
+						count = 1;
+					}
+				}
+			} else {
+				if (first_mfn) {
+					int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
+					PVDRM_INFO("Freeing IOMEM gfn:(%x) mfn:(%x).\n", first_gfn, first_mfn);
+					BUG_ON(ret < 0);
+					first_mfn = 0;
+					first_gfn = 0;
+					count = 0;
+				}
 			}
+		}
+		if (first_mfn) {
+			int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
+			PVDRM_INFO("Freeing IOMEM gfn:(%x) mfn:(%x).\n", first_gfn, first_mfn);
+			BUG_ON(ret < 0);
 		}
 		kfree(vma->backing);
 	}
