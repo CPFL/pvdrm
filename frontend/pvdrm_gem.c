@@ -84,8 +84,29 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	}
 
 	if (obj->pages) {
+		int i;
+		int ret = 0;
+		int invcount = 0;
+		struct gnttab_unmap_grant_ref* unmap = kzalloc(sizeof(struct gnttab_unmap_grant_ref) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
+		struct page** pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
+		for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
+			struct page* page = obj->pages[i];
+			if (page) {
+				pages[invcount] = page;
+				gnttab_set_unmap_op(&unmap[invcount], (unsigned long)pfn_to_kaddr(page_to_pfn(page)), GNTMAP_host_map, obj->handles[i]);
+				invcount++;
+			}
+		}
+		ret = gnttab_unmap_refs(unmap, NULL, pages, invcount);
+		BUG_ON(ret);
+		free_xenballooned_pages(invcount, pages);
+		kfree(pages);
+		kfree(unmap);
+
 		kfree(obj->pages);
 		obj->pages = NULL;
+		kfree(obj->handles);
+		obj->handles = NULL;
 	}
 
 	drm_gem_object_release(&obj->base);
@@ -255,9 +276,7 @@ int pvdrm_gem_object_new(struct drm_device* dev, struct drm_file* file, struct d
 	if (mappable) {
 		if (dma) {
 			PVDRM_INFO("Caching %p with refcount:(%d)\n", obj, pvdrm_gem_refcount(obj));
-			if (pvdrm->gem_cache_enabled) {
-				obj->cacheable = true;
-			}
+			obj->cacheable = true;
 		} else if (obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
 		}
 	}
@@ -324,7 +343,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 
 	drm_gem_vm_open(vma);
 
-	if (pvdrm->gem_cache_enabled && obj->cacheable && obj->pages) {
+	if (obj->pages) {
 		for (i = 0; i < (obj->base.size / PAGE_SIZE); ++i) {
 			struct page* page = obj->pages[i];
 			if (page) {
@@ -337,6 +356,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 		}
 		return ret;
 	}
+	BUG_ON(obj->pages);
 
 	req = (struct drm_pvdrm_gem_mmap) {
 		.map_handle = obj->map_handle,
@@ -351,12 +371,11 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 		BUG();
 	}
 
-	if (pvdrm->gem_cache_enabled && obj->cacheable) {
-		/* Remap previously resolved pages. */
-		/* FIXME: Page size alignment. */
-		BUG_ON(obj->pages);
-		obj->pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
-	}
+	/* Remap previously resolved pages. */
+	/* FIXME: Page size alignment. */
+	BUG_ON(obj->pages);
+	obj->pages = kzalloc(sizeof(struct page*) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
+	obj->handles = kzalloc(sizeof(grant_handle_t) * (obj->base.size / PAGE_SIZE), GFP_KERNEL);
 
 	return ret;
 }
@@ -442,9 +461,9 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 				PVDRM_ERROR("ERROR:%d 0x%lx,0x%lx,0x%lx\n", ret, vma->vm_start, vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
 				BUG();
 			}
-			if (pvdrm->gem_cache_enabled && obj->cacheable && obj->pages) {
-				obj->pages[mapping->i] = pages[i];
-			}
+			BUG_ON(!obj->pages);
+			obj->pages[mapping->i] = pages[i];
+			obj->handles[mapping->i] = map[i].handle;
 		}
 		kfree(map);
 		kfree(pages);

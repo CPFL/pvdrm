@@ -36,7 +36,11 @@ struct drm_pvdrm_gem_object {
 	uint32_t domain;
 	uint64_t map_handle;
 	bool cacheable;
+
+	/* grant page mappings. */
 	struct page** pages;
+	grant_handle_t* handles;
+
 	unsigned long backing;  /* Backing stone for VRAM mapping. */
 };
 
