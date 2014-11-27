@@ -112,6 +112,7 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 		obj->backing = 0;
 	}
 
+	pvdrm_gem_object_free_grant_refs(obj);
 	drm_gem_object_release(&obj->base);
 	if (obj->hash.key != -1) {
 		unsigned long flags;
