@@ -543,6 +543,7 @@ static void process_slot(struct work_struct* arg)
 			struct drm_device* dev = pvdrm_back_file_to_drm_device(file);
 			struct drm_file* file_priv = pvdrm_back_file_to_drm_file(file);
 			struct drm_gem_object* obj = drm_gem_object_lookup(dev, file_priv, req->handle);
+			PVDRM_DEBUG("Closing handle:(%x) with ref:(%d)\n", req->handle, atomic_read(&obj->refcount.refcount));
 			if (!obj) {
 				PVDRM_WARN("Invalid freeing handle:(%x)\n", req->handle);
 				ret = -EINVAL;
@@ -550,10 +551,11 @@ static void process_slot(struct work_struct* arg)
 			}
 
 			/* FIXME: It's not good solution. */
-			if (atomic_read(&obj->refcount.refcount) == 1) {
+			if (atomic_read(&obj->refcount.refcount) == 2  /* lookup reference & VMA reference. */) {
 				struct pvdrm_back_vma* vma = NULL;
 				vma = pvdrm_back_vma_find_with_gem_object(info->global, obj);
 				if (vma) {
+					PVDRM_DEBUG("Closing VMA:(%x)\n", req->handle);
 					pvdrm_back_vma_destroy(vma, info->global);
 				}
 			}
