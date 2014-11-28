@@ -315,6 +315,10 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	max = min(max_limited_by_vm_end, max);
 	max = min(req->nr_pages, max);
 
+	if (is_iomem) {
+		max = 1;
+	}
+
 	for (i = 0; i < max; ++i) {
 		/* Not mappable page? */
 		if (pte_none(*vma->pteps[page_offset + i])) {
@@ -349,9 +353,9 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 			if (vma->refs[page_offset + i] > 0) {
 				ref = vma->refs[page_offset + i];
 			} else {
-				ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))), 0);
+				ref = gnttab_grant_foreign_access(info->xbdev->otherend_id, pfn_to_mfn(pte_pfn(*(vma->pteps[offset]))), 0);
 			}
-			PVDRM_INFO("to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset])))));
+			PVDRM_INFO("to dom%d mmap is done with %d / 0x%llx\n", info->xbdev->otherend_id, ref, (unsigned long long)pfn_to_mfn(pte_pfn(*(vma->pteps[offset]))));
 			if (ref < 0) {
 				/* FIXME: bug... */
 				xenbus_dev_fatal(info->xbdev, ref, "granting ring page");
@@ -366,36 +370,43 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		}
 		req->mapped_count = result;
 	} else {
+		struct pvdrm_bench bench = {};
 		unsigned long first_mfn = 0;
 		unsigned long count = 0;
 		/* PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max); */
-		for (i = 0; i < max; ++i) {
-			int offset = page_offset + i;
-			unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset]))));
-			if (!first_mfn) {
-				first_mfn = mfn;
-				count = 1;
-			} else {
-				if ((first_mfn + count) == mfn) {
-					// Continuous.
-					count += 1;
-				} else {
-					// Not continuous.
-					ret = pvdrm_back_memory_mapping(info, req->backing + offset - count, first_mfn, count, true);
-					BUG_ON(ret < 0);
+		printk(KERN_INFO "= IOMEM start\n");
+		PVDRM_BENCH(&bench) {
+			for (i = 0; i < max; ++i) {
+				int offset = page_offset + i;
+				unsigned long mfn = pfn_to_mfn(page_to_pfn(pte_page(*(vma->pteps[offset]))));
+				if (!first_mfn) {
 					first_mfn = mfn;
 					count = 1;
+				} else {
+					if ((first_mfn + count) == mfn) {
+						// Continuous.
+						count += 1;
+					} else {
+						// Not continuous.
+						printk(KERN_INFO "| IOMEM %d\n", count);
+						ret = pvdrm_back_memory_mapping(info, req->backing + offset - count, first_mfn, count, true);
+						BUG_ON(ret < 0);
+						first_mfn = mfn;
+						count = 1;
+					}
 				}
+				vma->backing[offset] = (struct pvdrm_back_backing_mapping) {
+					.gfn = req->backing + offset,
+					.mfn = mfn
+				};
 			}
-			vma->backing[offset] = (struct pvdrm_back_backing_mapping) {
-				.gfn = req->backing + offset,
-				.mfn = mfn
-			};
+			if (first_mfn) {
+				printk(KERN_INFO "= IOMEM %d\n", count);
+				ret = pvdrm_back_memory_mapping(info, req->backing + (page_offset + max) - count, first_mfn, count, true);
+				BUG_ON(ret < 0);
+			}
 		}
-		if (first_mfn) {
-			ret = pvdrm_back_memory_mapping(info, req->backing + (page_offset + max) - count, first_mfn, count, true);
-			BUG_ON(ret < 0);
-		}
+		ret = 0;
 		req->mapped_count = max;
 	}
 	return ret;

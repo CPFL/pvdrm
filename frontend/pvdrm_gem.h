@@ -41,7 +41,7 @@ struct drm_pvdrm_gem_object {
 	struct page** pages;
 	grant_handle_t* handles;
 
-	unsigned long backing;  /* Backing stone for VRAM mapping. */
+	struct page* backing;  /* Backing store for VRAM mapping. */
 };
 
 uint32_t pvdrm_gem_host(struct pvdrm_fpriv* fpriv, struct drm_pvdrm_gem_object* obj);

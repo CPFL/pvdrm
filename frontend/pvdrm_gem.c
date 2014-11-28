@@ -109,8 +109,8 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	if (obj->backing) {
 		/* FIXME: Free iomem mapped area asynchronously. */
 		/* FIXME: Incorrect freeing. */
-		/* free_pages(obj->backing, get_order(obj->base.size)); */
-		obj->backing = 0;
+		__free_pages(obj->backing, get_order(obj->base.size));
+		obj->backing = NULL;
 	}
 
 	pvdrm_gem_object_free_grant_refs(obj);
@@ -339,7 +339,8 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 
 	/* This gem is iomem. */
 	if (!obj->backing && obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
-		obj->backing = __get_free_pages(GFP_KERNEL, get_order(obj->base.size));
+		obj->backing = alloc_pages(GFP_KERNEL, get_order(obj->base.size));
+		BUG_ON(!obj->backing);
 	}
 
 	/* FIXME: memory reference. */
@@ -409,7 +410,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 	if (is_iomem) {
 		BUG_ON(!obj->backing);
-		backing = virt_to_pfn(obj->backing);
+		backing = page_to_pfn(obj->backing);
 	}
 
 	req = (struct drm_pvdrm_gem_fault) {
