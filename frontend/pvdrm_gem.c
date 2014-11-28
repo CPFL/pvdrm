@@ -483,8 +483,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	} else {
 		/* FIXME: Xen now put errors. */
 		for (i = 0; i < req.mapped_count; ++i) {
-			PVDRM_DEBUG("mapping pages page[%d]:(%lx)== pfn:(0x%lx)\n", i, (unsigned long)(vma->vm_start + offset + (PAGE_SIZE * i)), (unsigned long)(backing + (offset >> PAGE_SHIFT) + i));
-			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), backing + (offset >> PAGE_SHIFT) + i);
+			/* PVDRM_DEBUG("mapping pages page[%d]:(%lx)== pfn:(0x%lx)\n", i, (unsigned long)(vma->vm_start + offset + (PAGE_SIZE * i)), (unsigned long)(backing + (offset >> PAGE_SHIFT) + i)); */
+			ret = vm_insert_page(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), &obj->backing[(offset >> PAGE_SHIFT) + i]);
 			if (ret && ret != -EBUSY) {
 				BUG();
 			}
