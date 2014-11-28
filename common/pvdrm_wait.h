@@ -34,10 +34,10 @@
 			if (__PVDRM_POLL_COUNTER__-- < 0) { \
 				/* Sleep. */ \
 				ktime_t time; \
-				__set_current_state(interruptible ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE); \
+				__set_current_state((interruptible) ? TASK_INTERRUPTIBLE : TASK_UNINTERRUPTIBLE); \
 				time = ktime_set(0, 20);  /* This value derived from Paradice [ASPLOS '14]. */ \
 				schedule_hrtimeout(&time, HRTIMER_MODE_REL); \
-				if (interruptible && signal_pending(current)) { \
+				if ((interruptible) && signal_pending(current)) { \
 					__PVDRM_WAIT_RET__ = -ERESTARTSYS; \
 					break; \
 				} \
