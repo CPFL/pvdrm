@@ -374,7 +374,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 		unsigned long first_mfn = 0;
 		unsigned long count = 0;
 		/* PVDRM_DEBUG("mfn:(%lx) backing:(%lx) max:(%u)\n", mfn, (unsigned long)(req->backing + page_offset), (unsigned)max); */
-		printk(KERN_INFO "= IOMEM start\n");
+		PVDRM_INFO("= IOMEM start\n");
 		PVDRM_BENCH(&bench) {
 			for (i = 0; i < max; ++i) {
 				int offset = page_offset + i;
@@ -388,7 +388,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 						count += 1;
 					} else {
 						// Not continuous.
-						printk(KERN_INFO "| IOMEM %d\n", count);
+						PVDRM_INFO("| IOMEM %lu\n", count);
 						ret = pvdrm_back_memory_mapping(info, req->backing + offset - count, first_mfn, count, true);
 						BUG_ON(ret < 0);
 						first_mfn = mfn;
@@ -401,7 +401,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 				};
 			}
 			if (first_mfn) {
-				printk(KERN_INFO "= IOMEM %d\n", count);
+				PVDRM_INFO("= IOMEM %lu\n", count);
 				ret = pvdrm_back_memory_mapping(info, req->backing + (page_offset + max) - count, first_mfn, count, true);
 				BUG_ON(ret < 0);
 			}
