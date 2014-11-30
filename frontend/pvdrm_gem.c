@@ -109,7 +109,9 @@ void pvdrm_gem_object_free(struct drm_gem_object *gem)
 	if (obj->backing) {
 		/* FIXME: Free iomem mapped area asynchronously. */
 		/* FIXME: Incorrect freeing. */
-		__free_pages(obj->backing, get_order(obj->base.size));
+		/* printk(KERN_INFO "== backing:count:(%d),mapped:(%d),order:(%d)\n", atomic_read(&obj->backing->_count), page_mapped(obj->backing), get_order(obj->base.size)); */
+		/* FIXME: Not sure why it causes memory corrupt... */
+		/* put_page(obj->backing); */
 		obj->backing = NULL;
 	}
 
@@ -340,6 +342,7 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	/* This gem is iomem. */
 	if (!obj->backing && obj->domain & NOUVEAU_GEM_DOMAIN_VRAM) {
 		obj->backing = alloc_pages(GFP_KERNEL, get_order(obj->base.size));
+		/* printk(KERN_INFO "backing:(%d)\n", atomic_read(&obj->backing->_count)); */
 		BUG_ON(!obj->backing);
 	}
 
@@ -473,6 +476,8 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			if (ret && ret != -EBUSY) {
 				PVDRM_ERROR("ERROR:%d 0x%lx,0x%lx,0x%lx\n", ret, vma->vm_start, vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
 				BUG();
+			} else if (ret == -EBUSY) {
+				PVDRM_ERROR("FAIL mapping pages page[%d] == pfn:(0x%lx)\n", mapping->i, pfn);
 			}
 			BUG_ON(!obj->pages);
 			obj->pages[mapping->i] = pages[i];
@@ -483,10 +488,14 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	} else {
 		/* FIXME: Xen now put errors. */
 		for (i = 0; i < req.mapped_count; ++i) {
-			/* PVDRM_DEBUG("mapping pages page[%d]:(%lx)== pfn:(0x%lx)\n", i, (unsigned long)(vma->vm_start + offset + (PAGE_SIZE * i)), (unsigned long)(backing + (offset >> PAGE_SHIFT) + i)); */
-			ret = vm_insert_page(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), &obj->backing[(offset >> PAGE_SHIFT) + i]);
+			/* printk(KERN_INFO "B[%d] backing:(%d)\n", i, atomic_read(&obj->backing->_count)); */
+			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), page_to_pfn(&obj->backing[(offset >> PAGE_SHIFT) + i]));
+			/* printk(KERN_INFO "A[%d] backing:(%d),ret:(%d)\n", i, atomic_read(&obj->backing->_count), ret); */
 			if (ret && ret != -EBUSY) {
+				PVDRM_ERROR("ERROR:%d 0x%lx,0x%lx,0x%lx\n", ret, vma->vm_start, vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
 				BUG();
+			} else if (ret == -EBUSY) {
+				printk(KERN_INFO "FAIL!!\n");
 			}
 		}
 	}
