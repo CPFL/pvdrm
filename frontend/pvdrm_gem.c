@@ -492,7 +492,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 			ret = vm_insert_pfn(vma, (unsigned long)vma->vm_start + offset + (PAGE_SIZE * i), page_to_pfn(&obj->backing[(offset >> PAGE_SHIFT) + i]));
 			/* printk(KERN_INFO "A[%d] backing:(%d),ret:(%d)\n", i, atomic_read(&obj->backing->_count), ret); */
 			if (ret && ret != -EBUSY) {
-				PVDRM_ERROR("ERROR:%d 0x%lx,0x%lx,0x%lx\n", ret, vma->vm_start, vma->vm_start + (PAGE_SIZE * mapping->i), pfn);
+				PVDRM_ERROR("ERROR:%d 0x%lx,0x%lx\n", ret, vma->vm_start, vma->vm_start + offset + (PAGE_SIZE * i));
 				BUG();
 			} else if (ret == -EBUSY) {
 				printk(KERN_INFO "FAIL!!\n");
