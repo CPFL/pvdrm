@@ -1,10 +1,10 @@
 ccflags-y := \
-    -Iinclude/drm \
-    -I$(src)
+	-Iinclude/drm \
+	-I$(src)
 
 obj-m := \
-    pvdrm-back.o \
-    pvdrm-front.o
+	pvdrm-back.o \
+	pvdrm-front.o
 
 pvdrm-front-y := \
 	frontend/pvdrm_nouveau_abi16.o \
