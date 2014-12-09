@@ -406,7 +406,7 @@ int pvdrm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct pvdrm_fpriv* fpriv = drm_file_to_fpriv(file);
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(dev);
 	uint64_t backing = 0;
-	uint64_t offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
+	unsigned long offset = (uintptr_t)vmf->virtual_address - vma->vm_start;
 	bool is_iomem = obj->domain & NOUVEAU_GEM_DOMAIN_VRAM;
 	struct drm_pvdrm_gem_fault req;
 	struct pvdrm_slot* slot = NULL;

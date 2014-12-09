@@ -51,6 +51,8 @@
 #include <drmP.h>
 
 #include <common/pvdrm_wait.h>
+#include <generated/pvdrm_imported.h>
+
 #include "pvdrm_back_drv.h"
 
 #include "xen_added_interface.h"  /* For domctl. */
@@ -322,6 +324,13 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	for (i = 0; i < max; ++i) {
 		/* Not mappable page? */
 		if (pte_none(*vma->pteps[page_offset + i])) {
+#if 0
+			ret = IMPORTED(handle_mm_fault)(vma->base.vm_mm, &vma->base, vma->base.vm_start + req->offset + i * PAGE_SIZE, FAULT_FLAG_WRITE);
+			if (ret & VM_FAULT_ERROR) {
+				PVDRM_ERROR("Fault.... %d\n", ret);
+				BUG();
+			}
+#else
 			struct vm_fault vmf = {
 				.flags = req->flags,
 				.pgoff = req->pgoff + i,
@@ -340,6 +349,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 			} else if (ret & VM_FAULT_LOCKED) {
 				/* FIXME: should install page. */
 			}
+#endif
 		}
 	}
 	// PVDRM_DEBUG("mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);

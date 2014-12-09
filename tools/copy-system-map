@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ -r "$1" ]; then
+	cp "$1" "$2"
+else
+	echo "\"$1\" is not readable, to copy it, root permission is required."
+	sudo cp "$1" "$2"
+fi
