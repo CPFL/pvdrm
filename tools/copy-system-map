@@ -4,5 +4,5 @@ if [ -r "$1" ]; then
 	cp "$1" "$2"
 else
 	echo "\"$1\" is not readable, to copy it, root permission is required."
-	sudo cp "$1" "$2"
+	sudo -s "cp \"$1\" \"$2\" && chmod 666 \"$2\""
 fi
