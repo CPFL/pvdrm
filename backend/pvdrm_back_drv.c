@@ -324,32 +324,34 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 	for (i = 0; i < max; ++i) {
 		/* Not mappable page? */
 		if (pte_none(*vma->pteps[page_offset + i])) {
-#if 0
-			ret = IMPORTED(handle_mm_fault)(vma->base.vm_mm, &vma->base, vma->base.vm_start + req->offset + i * PAGE_SIZE, FAULT_FLAG_WRITE);
-			if (ret & VM_FAULT_ERROR) {
-				PVDRM_ERROR("Fault.... %d\n", ret);
-				BUG();
-			}
+#if 1
+			ret = IMPORTED(handle_mm_fault)(
+					vma->base.vm_mm,
+					&vma->base, vma->base.vm_start + req->offset + i * PAGE_SIZE,
+					FAULT_FLAG_WRITE);
 #else
 			struct vm_fault vmf = {
 				.flags = req->flags,
 				.pgoff = req->pgoff + i,
 				.virtual_address = (void*)(vma->base.vm_start + req->offset + i * PAGE_SIZE),
 			};
-			PVDRM_DEBUG("Fault.... start with %llu start!\n", (unsigned long long)page_offset + i);
 			do {
 				ret = vma->base.vm_ops->fault(&vma->base, &vmf);
 				if (ret & VM_FAULT_ERROR) {
 					BUG();
 				}
 			} while (ret & VM_FAULT_RETRY);
+#endif
+			if (ret & VM_FAULT_ERROR) {
+				PVDRM_ERROR("Fault.... %d\n", ret);
+				BUG();
+			}
 
 			if (ret & VM_FAULT_NOPAGE) {
 				/* page is installed. */
 			} else if (ret & VM_FAULT_LOCKED) {
 				/* FIXME: should install page. */
 			}
-#endif
 		}
 	}
 	// PVDRM_DEBUG("mmap is done with %u / 0x%llx / 0x%llx , ref %d\n", ret, (unsigned long long)vmf.virtual_address, (unsigned long long)page_to_phys(pte_page(*(vma->pteps[0]))), slot->ref);
