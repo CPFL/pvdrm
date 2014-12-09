@@ -25,6 +25,7 @@ TABLE = {
     '3.6.11' => {
         'dir' => '/lib/modules/3.6.11-030611-generic/build',
         'files' => [
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.6.11-raring/linux-image-3.6.11-030611-generic_3.6.11-030611.201212171335_amd64.deb', 'image.deb' ],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.6.11-raring/linux-headers-3.6.11-030611_3.6.11-030611.201212171335_all.deb', 'all.deb' ],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.6.11-raring/linux-headers-3.6.11-030611-generic_3.6.11-030611.201212171335_amd64.deb', 'amd64.deb' ],
         ],
@@ -32,6 +33,7 @@ TABLE = {
     '3.16.7' => {
         'dir' => '/lib/modules/3.16.7-031607-generic/build',
         'files' => [
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.16.7-utopic/linux-image-3.16.7-031607-generic_3.16.7-031607.201410301735_amd64.deb', 'image.deb' ],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.16.7-utopic/linux-headers-3.16.7-031607_3.16.7-031607.201410301735_all.deb', 'all.deb' ],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.16.7-utopic/linux-headers-3.16.7-031607-generic_3.16.7-031607.201410301735_amd64.deb', 'amd64.deb' ],
         ],
@@ -39,6 +41,7 @@ TABLE = {
     '3.17.3' => {
         'dir' => '/lib/modules/3.17.3-031703-generic/build',
         'files' => [
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-image-3.17.3-031703-generic_3.17.3-031703.201411141335_amd64.deb', 'image.deb'],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-headers-3.17.3-031703_3.17.3-031703.201411141335_all.deb', 'all.deb'],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-headers-3.17.3-031703-generic_3.17.3-031703.201411141335_amd64.deb', 'amd64.deb'],
         ],
