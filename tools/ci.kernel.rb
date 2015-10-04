@@ -47,19 +47,19 @@ TABLE = {
         ],
     },
     '4.1.10' => {
-        'dir' => '/lib/modules/3.17.3-031703-generic/build',
-        'files' => [
-            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-image-3.17.3-031703-generic_3.17.3-031703.201411141335_amd64.deb', 'image.deb'],
-            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-headers-3.17.3-031703_3.17.3-031703.201411141335_all.deb', 'all.deb'],
-            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.17.3-vivid/linux-headers-3.17.3-031703-generic_3.17.3-031703.201411141335_amd64.deb', 'amd64.deb'],
-        ],
-    },
-    '4.2.3' => {
         'dir' => '/lib/modules/4.1.10-040110-generic/build',
         'files' => [
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.1.10-unstable/linux-image-4.1.10-040110-generic_4.1.10-040110.201510030837_amd64.deb', 'image.deb'],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.1.10-unstable/linux-headers-4.1.10-040110_4.1.10-040110.201510030837_all.deb', 'all.deb'],
             [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.1.10-unstable/linux-headers-4.1.10-040110-generic_4.1.10-040110.201510030837_amd64.deb', 'amd64.deb'],
+        ],
+    },
+    '4.2.3' => {
+        'dir' => '/lib/modules/4.2.3-040203-generic/build',
+        'files' => [
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.2.3-unstable/linux-image-4.2.3-040203-generic_4.2.3-040203.201510030832_amd64.deb', 'image.deb'],
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.2.3-unstable/linux-headers-4.2.3-040203_4.2.3-040203.201510030832_all.deb', 'all.deb'],
+            [ 'http://kernel.ubuntu.com/~kernel-ppa/mainline/v4.2.3-unstable/linux-headers-4.2.3-040203-generic_4.2.3-040203.201510030832_amd64.deb', 'amd64.deb'],
         ],
     },
 }
