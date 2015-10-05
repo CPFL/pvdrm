@@ -22,7 +22,12 @@
   THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <linux/version.h>
+
 #include <drmP.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+#include <drm_legacy.h>
+#endif
 
 #include "pvdrm_cast.h"
 #include "pvdrm_drm.h"
@@ -100,7 +105,11 @@ pvdrm_ttm_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct pvdrm_device* pvdrm = drm_device_to_pvdrm(file_priv->minor->dev);
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+		return drm_legacy_mmap(filp, vma);
+#else
 		return drm_mmap(filp, vma);
+#endif
 	}
 
 	return ttm_bo_mmap(filp, vma, &pvdrm->ttm->bdev);

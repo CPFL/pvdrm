@@ -24,7 +24,12 @@
 #ifndef PVDRM_GEM_H_
 #define PVDRM_GEM_H_
 
+#include <linux/version.h>
+
 #include <drmP.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+#include <drm_gem.h>
+#endif
 #include <common/pvdrm_nouveau_drm.h>
 
 struct pvdrm_fpriv;

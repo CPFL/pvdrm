@@ -64,14 +64,21 @@ static int pvdrm_slot_ensure_ref(struct pvdrm_device* pvdrm, struct pvdrm_slot* 
 		return ret;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+	ret = xenbus_grant_ring(xbdev, (void *)addr, 1, (grant_ref_t *)&(slot->ref));
+#else
 	ret = xenbus_grant_ring(xbdev, virt_to_mfn(addr));
+#endif
+
 	if (ret < 0) {
 		xenbus_dev_fatal(xbdev, ret, "granting ring page");
 		free_page(addr);
 		return ret;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
 	slot->ref = ret;
+#endif
 	slot->addr = (void*)addr;
 
 	return 0;
@@ -115,14 +122,21 @@ int pvdrm_slots_init(struct pvdrm_device* pvdrm)
 			return ret;
 		}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+		ret = xenbus_grant_ring(xbdev, (void *)vaddr, 1, (grant_ref_t *)&(slots->ref));
+#else
 		ret = xenbus_grant_ring(xbdev, virt_to_mfn(vaddr));
+#endif
+
 		if (ret < 0) {
 			xenbus_dev_fatal(xbdev, ret, "granting ring page");
 			free_page(vaddr);
 			return ret;
 		}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
 		slots->ref = ret;
+#endif
 		slots->mapped = (void*)vaddr;
 	}
 	PVDRM_INFO("Initialising pvdrm counter reference %u.\n", slots->ref);

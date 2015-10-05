@@ -33,6 +33,7 @@
 #include <linux/sched.h>
 #include <linux/time.h>
 #include <linux/wait.h>
+#include <linux/version.h>
 
 #include <xen/xen.h>
 #include <xen/xenbus.h>
@@ -49,6 +50,9 @@
 #include <asm/xen/hypercall.h>
 
 #include <drmP.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+#include <drm_gem.h>
+#endif
 
 #include <common/pvdrm_wait.h>
 #include <generated/pvdrm_imported.h>
@@ -697,7 +701,11 @@ static int polling(void *arg)
 		BUG_ON(!info->device_path);
 		PVDRM_DEBUG("device-path %s.\n", info->device_path);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+		ret = xenbus_map_ring_valloc(info->xbdev, (grant_ref_t *)&(info->ref), 1, &addr);
+#else
 		ret = xenbus_map_ring_valloc(info->xbdev, info->ref, &addr);
+#endif
 		if (ret) {
 			xenbus_dev_fatal(info->xbdev, ret, "mapping counter-ref");
 			return ret;
@@ -706,7 +714,11 @@ static int polling(void *arg)
 		atomic_set(&info->get, UINT32_MAX);
 		PVDRM_DEBUG("sizeof mapped id is %u.\n", pvdrm_slot_id(info->mapped, &info->mapped->slot[1]));
 		for (i = 0; i < PVDRM_SLOT_NR; ++i) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+			ret = xenbus_map_ring_valloc(info->xbdev, (grant_ref_t *)&(info->mapped->slot[i].ref), 1, &info->slot_addrs[i]);
+#else
 			ret = xenbus_map_ring_valloc(info->xbdev, info->mapped->slot[i].ref, &info->slot_addrs[i]);
+#endif
 			if (ret) {
 				xenbus_dev_fatal(info->xbdev, ret, "mapping slot addrs");
 				return ret;
@@ -865,11 +877,21 @@ static const struct xenbus_device_id pvdrm_back_ids[] = {
 	{ "" }
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+static struct xenbus_driver pvdrm_back_driver = {
+	.name = "pvdrm-back",
+	.ids = pvdrm_back_ids,
+	.probe = pvdrm_back_probe,
+	.remove = pvdrm_back_remove,
+	.otherend_changed = frontend_changed
+};
+#else
 static DEFINE_XENBUS_DRIVER(pvdrm_back, ,
 	.probe = pvdrm_back_probe,
 	.remove = pvdrm_back_remove,
 	.otherend_changed = frontend_changed
 );
+#endif
 
 static int __init pvdrm_back_init(void)
 {

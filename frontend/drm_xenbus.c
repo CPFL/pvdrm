@@ -173,6 +173,8 @@ err_g1:
 #endif
 EXPORT_SYMBOL(drm_get_xenbus_dev);
 
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)
 /* FIXME: Fix this function for xenbus. */
 static int drm_xenbus_set_busid(struct drm_device *dev, struct drm_master *master)
 {
@@ -213,6 +215,7 @@ err:
 static struct drm_bus drm_xenbus_bus = {
 	.set_busid = drm_xenbus_set_busid,
 };
+#endif
 
 /**
  * Xenbus device initialization. Called direct from modules.
@@ -230,7 +233,9 @@ int drm_xenbus_init(struct drm_driver *driver, struct xenbus_device *xbdev)
 {
 	DRM_DEBUG("\n");
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)
 	driver->bus = &drm_xenbus_bus;
+#endif
 	return drm_get_xenbus_dev(xbdev, driver);
 }
 EXPORT_SYMBOL(drm_xenbus_init);

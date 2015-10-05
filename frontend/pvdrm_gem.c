@@ -24,6 +24,7 @@
 
 #include <linux/types.h>
 #include <linux/delay.h>
+#include <linux/version.h>
 
 #include <xen/xen.h>
 #include <xen/page.h>
@@ -36,6 +37,9 @@
 
 #include <drmP.h>
 #include <drm_crtc_helper.h>
+#if  LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+#include <drm_legacy.h>
+#endif
 
 #include <common/pvdrm_bench.h>
 #include <common/pvdrm_ignore_unused_variable_warning.h>
@@ -320,7 +324,11 @@ int pvdrm_gem_mmap(struct file* filp, struct vm_area_struct* vma)
 	pvdrm = drm_device_to_pvdrm(dev);
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET)) {
+#if  LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+		return drm_legacy_mmap(filp, vma);
+#else
 		return drm_mmap(filp, vma);
+#endif
 	}
 
 	spin_lock_irqsave(&pvdrm->mh2obj_lock, flags);

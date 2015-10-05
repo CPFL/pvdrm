@@ -1,4 +1,5 @@
-#ifndef __NOUVEAU_ABI16_H__
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) && !defined(__NOUVEAU_ABI16_H__)
 #define __NOUVEAU_ABI16_H__
 
 #define ABI16_IOCTL_ARGS                                                       \

@@ -356,12 +356,23 @@ static const struct xenbus_device_id pvdrm_ids[] = {
 	{ "" }
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+static struct xenbus_driver pvdrm_driver = {
+	.name = "pvdrm-front",
+	.ids = pvdrm_ids,
+	.probe = pvdrm_probe,
+	.remove = pvdrm_remove,
+	/* .resume = pvdrm_resume, */
+	.otherend_changed = backend_changed,
+};
+#else
 static DEFINE_XENBUS_DRIVER(pvdrm, "pvdrm-front",
 	.probe = pvdrm_probe,
 	.remove = pvdrm_remove,
 	/* .resume = pvdrm_resume, */
 	.otherend_changed = backend_changed,
 );
+#endif
 
 static int __init pvdrm_init(void)
 {
