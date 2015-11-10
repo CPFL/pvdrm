@@ -272,6 +272,7 @@ destroy_data:
 
 int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping)
 {
+#if 1
 	struct xen_domctl domctl = { 0 };
 
 	domctl.cmd = XEN_DOMCTL_memory_mapping;
@@ -283,6 +284,58 @@ int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn
 	domctl.interface_version = XEN_DOMCTL_INTERFACE_VERSION;
 
 	return _hypercall1(int, domctl, &domctl);
+#else
+	struct xen_domctl domctl = { 0 };
+    int ret = 0, err = 0;
+    unsigned long done = 0, nr, max_batch_sz;
+
+    domctl.cmd = XEN_DOMCTL_memory_mapping;
+    domctl.domain = info->xbdev->otherend_id;
+    domctl.u.memory_mapping.add_mapping = (add_mapping) ? 1 : 0;
+	domctl.interface_version = XEN_DOMCTL_INTERFACE_VERSION;
+    max_batch_sz = nr_mfns;
+    do
+    {
+        nr = min_t(unsigned long, nr_mfns - done, max_batch_sz);
+        domctl.u.memory_mapping.nr_mfns = nr;
+        domctl.u.memory_mapping.first_gfn = first_gfn + done;
+        domctl.u.memory_mapping.first_mfn = first_mfn + done;
+        PVDRM_DEBUG("before, done=%lu, max_batch_sz=%lu, add_mapping=%d", done, max_batch_sz, add_mapping);
+        err = _hypercall1(int, domctl, &domctl);
+        PVDRM_DEBUG("after, done=%lu, max_batch_sz=%lu, add_mapping=%d, err=%d", done, max_batch_sz, add_mapping, err);
+        //if ( err && errno == E2BIG )
+        if ( 0 )
+        {
+            if ( max_batch_sz <= 1 )
+                break;
+            max_batch_sz >>= 1;
+            continue;
+        }
+        /* Save the first error... */
+        if ( !ret )
+            ret = err;
+        /* .. and ignore the rest of them when removing. */
+        if ( err && add_mapping != DPCI_REMOVE_MAPPING )
+            break;
+
+        done += nr;
+    } while ( done < nr_mfns );
+
+    PVDRM_DEBUG("end while, done=%lu, ret=%d\n", done, ret);
+    /*
+     * Undo what we have done unless unmapping, by unmapping the entire region.
+     * Errors here are ignored.
+     */
+    if ( ret && add_mapping != DPCI_REMOVE_MAPPING )
+        pvdrm_back_memory_mapping(info, first_gfn, first_mfn, nr_mfns,
+                                 DPCI_REMOVE_MAPPING);
+
+    /* We might get E2BIG so many times that we never advance. */
+    if ( !done && !ret )
+        ret = -1;
+
+    return ret;
+#endif
 }
 
 static inline uint32_t uint32_max(uint32_t a, uint32_t b)
