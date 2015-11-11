@@ -13,7 +13,7 @@ DRM is a common abstraction layer for GPU drivers
 By leveraging DRM APIs (including GEM object APIs), PVDRM enables multiplexing and isolation among VMs without compromising performance. And it gives portability over linux kernel versions.
 
 Currently, it only supports nouveau driver for NVIDIA GPUs.
-We tested PVDRM on 3.6.5 and 3.17.2 Linux kernels.
+We tested PVDRM on 3.6.5 and 3.17.2 Linux kernels on Xen 4.2.
 
 ## Build Instruction
 
