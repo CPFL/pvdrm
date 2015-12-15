@@ -104,5 +104,6 @@ static inline struct drm_device* pvdrm_back_file_to_drm_device(struct pvdrm_back
 }
 
 int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping);
+int pvdrm_back_iomem_permission(struct pvdrm_back_device* info, uint64_t first_mfn, uint64_t nr_mfns, bool add_mapping);
 
 #endif  /* PVDRM_BACK_DRV_H_ */

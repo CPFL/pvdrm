@@ -31,8 +31,8 @@
  * qemu's user space application.
  */
 
-#define XEN_DOMCTL_INTERFACE_VERSION 0x00000008
-//#define XEN_DOMCTL_INTERFACE_VERSION 0x0000000a
+//#define XEN_DOMCTL_INTERFACE_VERSION 0x00000008
+#define XEN_DOMCTL_INTERFACE_VERSION 0x0000000a
 
 #define uint64_aligned_t uint64_t __attribute__((aligned(8)))
 
@@ -51,12 +51,22 @@ struct xen_domctl_memory_mapping {
 };
 DEFINE_GUEST_HANDLE_STRUCT(xen_domctl_memory_mapping);
 
+struct xen_domctl_iomem_permission {
+    uint64_aligned_t first_mfn;/* first page (physical page number) in range */
+    uint64_aligned_t nr_mfns;  /* number of pages in range (>0) */
+    uint8_t  allow_access;     /* allow (!0) or deny (0) access to range? */
+};
+DEFINE_GUEST_HANDLE_STRUCT(xen_domctl_iomem_permission);
+
+
 struct xen_domctl {
     uint32_t cmd;
+#define XEN_DOMCTL_iomem_permission              20
 #define XEN_DOMCTL_memory_mapping                39
     uint32_t interface_version; /* XEN_DOMCTL_INTERFACE_VERSION */
     domid_t  domain;
     union {
+        struct xen_domctl_iomem_permission  iomem_permission;
         struct xen_domctl_memory_mapping    memory_mapping;
         uint8_t                             pad[128];
     } u;
