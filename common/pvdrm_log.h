@@ -57,7 +57,7 @@
 	#define PVDRM_PRINTK(level, fmt, arg...) do { } while (0)
 #endif
 
-#define PVDRM_DEBUG_LOG 1
+#define PVDRM_DEBUG_LOG 0
 
 #define PVDRM_DEBUG(fmt, arg...) \
 	do { \

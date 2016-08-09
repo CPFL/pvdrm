@@ -93,8 +93,8 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 						int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
 						PVDRM_INFO("Freeing IOMEM gfn:(%lx) mfn:(%lx).\n", first_gfn, first_mfn);
 						BUG_ON(ret < 0);
-                        ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
-                        BUG_ON(ret < 0);
+						ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
+						BUG_ON(ret < 0);
 						first_mfn = mapping->mfn;
 						first_gfn = mapping->gfn;
 						count = 1;
@@ -105,8 +105,8 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 					int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
 					PVDRM_INFO("Freeing IOMEM gfn:(%lx) mfn:(%lx).\n", first_gfn, first_mfn);
 					BUG_ON(ret < 0);
-                    ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
-                    BUG_ON(ret < 0);
+					ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
+					BUG_ON(ret < 0);
 					first_mfn = 0;
 					first_gfn = 0;
 					count = 0;
@@ -117,8 +117,8 @@ void pvdrm_back_vma_destroy(struct pvdrm_back_vma* vma, struct pvdrm_back_file* 
 			int ret = pvdrm_back_memory_mapping(file->info, first_gfn, first_mfn, count, false);
 			PVDRM_INFO("Freeing IOMEM gfn:(%lx) mfn:(%lx).\n", first_gfn, first_mfn);
 			BUG_ON(ret < 0);
-            ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
-            BUG_ON(ret < 0);
+			ret = pvdrm_back_iomem_permission(file->info, first_mfn, count, false);
+			BUG_ON(ret < 0);
 		}
 		kfree(vma->backing);
 	}

@@ -31,7 +31,6 @@
  * qemu's user space application.
  */
 
-//#define XEN_DOMCTL_INTERFACE_VERSION 0x00000008
 #define XEN_DOMCTL_INTERFACE_VERSION 0x0000000a
 
 #define uint64_aligned_t uint64_t __attribute__((aligned(8)))

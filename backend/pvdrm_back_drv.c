@@ -287,35 +287,35 @@ int pvdrm_back_memory_mapping(struct pvdrm_back_device* info, uint64_t first_gfn
 
 int pvdrm_back_iomem_permission(struct pvdrm_back_device *info, uint64_t first_mfn, uint64_t nr_mfns, bool allow_access)
 {
-    struct xen_domctl domctl = { 0 };
+	struct xen_domctl domctl = { 0 };
 
-    domctl.cmd = XEN_DOMCTL_iomem_permission;
-    domctl.domain = info->xbdev->otherend_id;
-    domctl.u.iomem_permission.first_mfn = first_mfn;
-    domctl.u.iomem_permission.nr_mfns = nr_mfns;
-    domctl.u.iomem_permission.allow_access = (allow_access) ? 1 : 0;
-    domctl.interface_version = XEN_DOMCTL_INTERFACE_VERSION;
+	domctl.cmd = XEN_DOMCTL_iomem_permission;
+	domctl.domain = info->xbdev->otherend_id;
+	domctl.u.iomem_permission.first_mfn = first_mfn;
+	domctl.u.iomem_permission.nr_mfns = nr_mfns;
+	domctl.u.iomem_permission.allow_access = (allow_access) ? 1 : 0;
+	domctl.interface_version = XEN_DOMCTL_INTERFACE_VERSION;
 
-    return _hypercall1(int, domctl, &domctl);
+	return _hypercall1(int, domctl, &domctl);
 }
 
 
 static inline uint32_t uint32_max(uint32_t a, uint32_t b)
 {
-    return (a > b) ? a : b;
+	return (a > b) ? a : b;
 }
 
 static inline uint32_t uint32_min(uint32_t a, uint32_t b)
 {
-    return (a > b) ? b : a;
+	return (a > b) ? b : a;
 }
 
 static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file* file, struct pvdrm_slot* slot)
 {
-    int i;
-    int ret = 0;
-    int result = 0;
-    uint64_t page_offset = 0;
+	int i;
+	int ret = 0;
+	int result = 0;
+	uint64_t page_offset = 0;
 	uint32_t max;
 	uint32_t max_limited_by_vm_end;
 	struct pvdrm_mapping* refs = NULL;
@@ -420,7 +420,7 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 					} else {
 						// Not continuous.
 						PVDRM_INFO("| IOMEM %lu\n", count);
-                        ret = pvdrm_back_iomem_permission(info, first_mfn, count, true);
+						ret = pvdrm_back_iomem_permission(info, first_mfn, count, true);
 						BUG_ON(ret < 0);
 						ret = pvdrm_back_memory_mapping(info, req->backing + offset - count, first_mfn, count, true);
 						BUG_ON(ret < 0);
@@ -435,8 +435,8 @@ static int process_fault(struct pvdrm_back_device* info, struct pvdrm_back_file*
 			}
 			if (first_mfn) {
 				PVDRM_INFO("= IOMEM %lu\n", count);
-                ret = pvdrm_back_iomem_permission(info, first_mfn, count, true);
-                BUG_ON(ret < 0);
+				ret = pvdrm_back_iomem_permission(info, first_mfn, count, true);
+				BUG_ON(ret < 0);
 				ret = pvdrm_back_memory_mapping(info, req->backing + (page_offset + max) - count, first_mfn, count, true);
 				BUG_ON(ret < 0);
 			}
